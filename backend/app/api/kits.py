@@ -363,8 +363,16 @@ def update_kit(
 
 @router.delete("/{kit_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_kit(kit_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    from app.models import Job, Sample
     kit = db.get(Kit, kit_id)
     if kit is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kit not found")
+    if kit.status == KitStatus.analysed:
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "This kit has been analysed and cannot be deleted.")
+    if db.scalar(select(Job.id).where(Job.kit_id == kit.id).limit(1)) \
+            or db.scalar(select(Sample.id).where(Sample.kit_id == kit.id).limit(1)):
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "This kit is in use (has analysis jobs or samples) and cannot be deleted.")
     db.delete(kit)
     db.commit()

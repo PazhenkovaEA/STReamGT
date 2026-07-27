@@ -18,6 +18,7 @@ import SamplePlots from "./pages/samples/SamplePlots.jsx";
 import AnimalMatch from "./pages/matching/AnimalMatch.jsx";
 import AnimalView from "./pages/matching/AnimalView.jsx";
 import AdminKits from "./pages/admin/AdminKits.jsx";
+import AdminKitRegister from "./pages/admin/AdminKitRegister.jsx";
 import AdminPanels from "./pages/admin/AdminPanels.jsx";
 import AdminUsers from "./pages/admin/AdminUsers.jsx";
 import Manual from "./pages/Manual.jsx";
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/submit" element={<Protected><Submit /></Protected>} />
         <Route path="/jobs/:publicId" element={<Protected><JobDetail /></Protected>} />
         <Route path="/admin/kits" element={<AdminProtected><AdminKits /></AdminProtected>} />
+        <Route path="/admin/kits/new" element={<AdminProtected><AdminKitRegister /></AdminProtected>} />
         <Route path="/admin/panels" element={<AdminProtected><AdminPanels /></AdminProtected>} />
         <Route path="/admin/users" element={<AdminProtected><AdminUsers /></AdminProtected>} />
       </Routes>

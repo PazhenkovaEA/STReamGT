@@ -244,3 +244,15 @@ def test_delete_kit(client, catalog, admin_token):
     kit_id = _register_kit(client, admin_token, []).json()["id"]
     assert client.delete(f"/api/kits/{kit_id}", headers=bearer(admin_token)).status_code == 204
     assert client.get(f"/api/kits/{kit_id}", headers=bearer(admin_token)).status_code == 404
+
+
+def test_delete_analysed_kit_blocked(client, catalog, admin_token):
+    kit_id = _register_kit(client, admin_token, []).json()["id"]
+    assert client.patch(
+        f"/api/kits/{kit_id}", json={"status": "analysed"}, headers=bearer(admin_token)
+    ).json()["status"] == "analysed"
+    r = client.delete(f"/api/kits/{kit_id}", headers=bearer(admin_token))
+    assert r.status_code == 409, r.text
+    assert "analysed" in r.json()["detail"]
+    # kit still there
+    assert client.get(f"/api/kits/{kit_id}", headers=bearer(admin_token)).status_code == 200
