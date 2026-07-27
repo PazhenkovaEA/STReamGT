@@ -282,11 +282,18 @@ export default function SamplePage() {
 
       <div className="sample-body" ref={bodyRef}>
         <div className="sample-main">
-          <h2>Consensus</h2>
+          <div className="row" style={{ alignItems: "baseline", gap: ".75rem" }}>
+            <h2>Consensus</h2>
+            <span className="spacer" />
+            <span className="sex-summary">
+              Genetic sex: <b>{sample.sex === "male" ? "♂ male" : sample.sex === "female" ? "♀ female" : "unknown"}</b>
+              {sample.sex_marker && <span className="muted small"> · {sample.sex_marker}</span>}
+            </span>
+          </div>
           {sample.consensus.length === 0
             ? <p className="muted">No consensus genotypes. Try “Rerun consensus”.</p>
             : <ConsensusTable rows={sample.consensus} onEdit={editCell} onToggleLock={toggleLock}
-                              sex={sample.sex} onSetSex={(v) => patch({ sex: v })} sexMarker={sample.sex_marker} />}
+                              sexMarker={sample.sex_marker} />}
         </div>
         {!panelHidden && (
           <>

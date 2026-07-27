@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.models import (
     User, Project, Population, Study, Sample, ConsensusGenotype, ReplicateObservation,
-    MatchSubgroup, Kit,
+    MatchSubgroup, Kit, PrimerPanel, Primer, PrimerType,
 )
 
 A, B = "A" * 12, "A" * 14
@@ -20,7 +20,12 @@ def _hdr(tok):
 def _seed(with_match=False):
     with SessionLocal() as db:
         u = db.scalar(select(User).where(User.email == "admin@x.com"))
+        panel = PrimerPanel(code="DPANEL")
+        db.add(panel); db.flush()
+        db.add(Primer(panel_id=panel.id, locus="UA_ZF", type=PrimerType.snp,
+                      sequence="X:AAAACCCC/Y:AAATCCCC"))   # SNP sex marker -> sex_marker
         kit = db.scalar(select(Kit).where(Kit.kit_code == "DKIT")) or Kit(kit_code="DKIT")
+        kit.panel_id = panel.id
         db.add(kit); db.flush()
         proj = Project(public_id=uuid.uuid4().hex, name="P", owner_user_id=u.id); db.add(proj); db.flush()
         pop = Population(project_id=proj.id, name="Pop"); db.add(pop); db.flush()
@@ -48,7 +53,7 @@ def test_sample_detail_enrichment(client, admin_token):
     d = client.get(f"/api/samples/{sid}", headers=_hdr(admin_token)).json()
     assert d["kit_code"] == "DKIT"
     assert d["animal_label"] == "ANIMAL-7"
-    assert d["sex_marker"] == "SRY"
+    assert d["sex_marker"] == "UA_ZF"      # derived from the panel's SNP sex marker
     row = d["consensus"][0]
     assert row["n_obs_a1"] == 3 and row["n_obs_a2"] == 2   # 3× allele "12", 2× allele "14"
 

@@ -22,9 +22,10 @@ export function AlleleCell({ value, locked, onSave }) {
   );
 }
 
-// Consensus genotype table. Lock is the first column; a synthetic top "Sex" row is bound to the
-// sample's genetic sex (same control as the info-panel Sex menu). Al3/Al4 columns hide when empty.
-export function ConsensusTable({ rows, onEdit, onToggleLock, sex, onSetSex, sexMarker }) {
+// Consensus genotype table. Lock is the first column; the sex (SNP) marker is shown as a normal
+// data row like any microsat (its X/Y alleles) — the male/female call lives above the table.
+// Al3/Al4 columns hide when empty.
+export function ConsensusTable({ rows, onEdit, onToggleLock, sexMarker }) {
   const showAl3 = rows.some((c) => c.allele3);
   const showAl4 = rows.some((c) => c.allele4);
   const alleleCols = [1, 2, ...(showAl3 ? [3] : []), ...(showAl4 ? [4] : [])];
@@ -41,29 +42,17 @@ export function ConsensusTable({ rows, onEdit, onToggleLock, sex, onSetSex, sexM
           </tr>
         </thead>
         <tbody>
-          {onSetSex && (
-            <tr className="sex-row">
-              <td></td>
-              <td className="sex-marker">{sexMarker || "Sex"} <span className="muted small">(sex)</span></td>
-              <td colSpan={alleleCols.length + 10}>
-                <select className="sex-select" value={sex ?? "unknown"}
-                        onChange={(e) => onSetSex(e.target.value)}>
-                  <option value="unknown">unknown</option>
-                  <option value="male">male ♂</option>
-                  <option value="female">female ♀</option>
-                </select>
-              </td>
-            </tr>
-          )}
           {rows.map((c) => {
             const homo = !c.allele2;
             return (
-              <tr key={c.id} className={`${c.is_locked ? "locked-row" : ""} ${c.marker === sexMarker ? "is-sex" : ""}`}>
+              <tr key={c.id} className={c.is_locked ? "locked-row" : ""}>
                 <td>
                   <button className="lockbtn-icon" title={c.is_locked ? "Unlock" : "Lock"}
                           onClick={() => onToggleLock(c)}>{c.is_locked ? "🔒" : "🔓"}</button>
                 </td>
-                <td className="marker-cell">{c.marker}{c.is_edited ? " ✎" : ""}</td>
+                <td className="marker-cell">{c.marker}
+                  {c.marker === sexMarker && <span className="muted small"> (sex)</span>}
+                  {c.is_edited ? " ✎" : ""}</td>
                 {alleleCols.map((i) => (
                   <td key={i}>
                     <AlleleCell value={c[`allele${i}`]} locked={c.is_locked}

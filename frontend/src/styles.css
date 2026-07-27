@@ -368,8 +368,8 @@ button.stat-badge { cursor: pointer; }
 .cell-fail { background: #FF1D27 !important; color: #fff; font-weight: 600; text-align: center; }
 .consensus-table .marker-cell { white-space: nowrap; font-weight: 500; }
 .consensus-table .unconf { font-size: .8rem; max-width: 12rem; }
-tr.sex-row > td, tr.is-sex > td { background: #f3f0ff; }
-.sex-select { padding: .2rem .4rem; }
+.sex-summary { font-size: .92rem; }
+.sex-summary b { font-size: 1rem; }
 .lockbtn-icon { background: none; padding: .1rem .3rem; font-size: .95rem; }
 
 th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }

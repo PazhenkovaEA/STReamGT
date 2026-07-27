@@ -17,7 +17,7 @@ from app.schemas.sample import (
 )
 from app.schemas.project import PopulationOut
 from app.services.plot_data import sample_plot_data
-from app.services.qc import SEX_MARKER
+from app.services.qc import sex_markers
 
 router = APIRouter(tags=["samples"])
 
@@ -89,7 +89,7 @@ def get_sample(
         row.n_obs_a2 = obs_counts.get((c.marker, c.allele2)) if c.allele2 else None
         rows.append(row)
     detail.consensus = rows
-    detail.sex_marker = SEX_MARKER
+    detail.sex_marker = ", ".join(sorted(sex_markers(db, sample))) or None
     if sample.kit_id is not None:
         kit = db.get(Kit, sample.kit_id)
         detail.kit_code = kit.kit_code if kit else None
