@@ -71,6 +71,34 @@ def test_create_panel_uploads_csv(client, admin_token):
         storage._client.cache_clear()
 
 
+def test_upload_tag_layout(client, catalog, admin_token, user_token):
+    with mock_aws():
+        storage._client.cache_clear()
+        boto3.client("s3", region_name=settings.s3_region).create_bucket(
+            Bucket=settings.s3_bucket,
+            CreateBucketConfiguration={"LocationConstraint": settings.s3_region},
+        )
+        csv = b"Position,PP1,PP2,PP3\n1,aaa,ttt,ccc\n2,ggg,ccc,aaa\n"
+        r = client.post("/api/kits/tag-layout",
+                        files={"tags_csv": ("tags.csv", csv, "text/csv")},
+                        headers=bearer(admin_token))
+        assert r.status_code == 200, r.text
+        assert r.json()["column_names"] == ["PP1", "PP2", "PP3"]
+        assert r.json()["tags_csv_key"] == "tags/tags.csv"
+        # reflected by GET, and downloadable
+        assert client.get("/api/kits/tag-layout", headers=bearer(admin_token)
+                          ).json()["column_names"] == ["PP1", "PP2", "PP3"]
+        assert "url" in client.get("/api/kits/tag-layout/download", headers=bearer(admin_token)).json()
+        # a header with no PP columns -> 422; non-admin -> 403
+        assert client.post("/api/kits/tag-layout",
+                           files={"tags_csv": ("t.csv", b"Position\n1\n", "text/csv")},
+                           headers=bearer(admin_token)).status_code == 422
+        assert client.post("/api/kits/tag-layout",
+                           files={"tags_csv": ("t.csv", csv, "text/csv")},
+                           headers=bearer(user_token)).status_code == 403
+        storage._client.cache_clear()
+
+
 # ---------- users ----------
 
 def test_users_list_and_promote(client, admin_token):

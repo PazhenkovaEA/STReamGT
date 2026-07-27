@@ -59,3 +59,4 @@ class TagLayoutOut(BaseModel):
     id: int
     name: str
     column_names: list[str]
+    tags_csv_key: str | None = None   # presence indicates a downloadable CSV (admin-only)

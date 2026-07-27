@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ from app.schemas.kit import (
 )
 from app.schemas.panel import TagLayoutOut
 from app.services import storage
+from app.services.kit_files import parse_tag_columns
 from app.services.kit_reads import set_kit_reads
 from app.services import claim_codes
 from app.services import ratelimit
@@ -78,6 +79,43 @@ def _attach_claim_emails(db: Session, kits: list[Kit]) -> None:
 @router.get("/tag-layout", response_model=TagLayoutOut)
 def get_tag_layout(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     return _global_tag_layout(db)
+
+
+@router.get("/tag-layout/download")
+def download_tag_layout(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Presigned URL to download the current shared tags CSV."""
+    layout = _global_tag_layout(db)
+    if not layout.tags_csv_key:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No tags CSV stored")
+    return {"url": storage.presign_get(layout.tags_csv_key, filename="tags.csv")}
+
+
+@router.post("/tag-layout", response_model=TagLayoutOut)
+async def upload_tag_layout(
+    tags_csv: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Replace the shared tag layout (Position,PP1,PP2,… CSV). Applies to all kits."""
+    raw = await tags_csv.read()
+    text = raw.decode("utf-8-sig", errors="replace")
+    try:
+        cols = parse_tag_columns(text)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+
+    key = "tags/tags.csv"                 # canonical key the pipeline reads
+    storage.put_bytes(key, raw)
+
+    layout = db.scalar(select(TagLayout).order_by(TagLayout.id))
+    if layout is None:
+        layout = TagLayout(name="default")
+        db.add(layout)
+    layout.tags_csv_key = key
+    layout.column_names = [c["name"] for c in cols]
+    db.commit()
+    db.refresh(layout)
+    return layout
 
 
 # ---------- list / get (access-filtered) ----------

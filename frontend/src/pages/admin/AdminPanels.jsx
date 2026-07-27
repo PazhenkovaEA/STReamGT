@@ -12,8 +12,35 @@ export default function AdminPanels() {
   const [editId, setEditId] = useState(null);      // panel being renamed
   const [edit, setEdit] = useState({});
 
+  // shared tag layout
+  const [layout, setLayout] = useState(null);
+  const [tagsFile, setTagsFile] = useState(null);
+  const [tagsBusy, setTagsBusy] = useState(false);
+  const [tagsMsg, setTagsMsg] = useState(null);
+
+  const loadTags = () => api.getTagLayout().then(setLayout).catch((e) => setErr(e.message));
   const load = () => api.listPanels().then(setPanels).catch((e) => setErr(e.message));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadTags(); }, []);
+
+  const downloadTags = async () => {
+    try { const { url } = await api.downloadTagLayout(); window.open(url, "_blank"); }
+    catch (e) { setErr(e.message); }
+  };
+  const uploadTags = async (e) => {
+    e.preventDefault();
+    setErr(null); setTagsMsg(null);
+    if (!tagsFile) return setErr("Choose a tags CSV.");
+    if (!confirm("Replace the shared tags for ALL kits? This changes the tag layout every kit uses — "
+      + "be sure the new file is correct and keeps the PP columns your existing kits rely on.")) return;
+    setTagsBusy(true);
+    try {
+      const form = new FormData();
+      form.append("tags_csv", tagsFile);
+      const updated = await api.uploadTagLayout(form);
+      setLayout(updated); setTagsFile(null); e.target.reset();
+      setTagsMsg(`✓ Tags updated — ${updated.column_names.length} columns.`);
+    } catch (e) { setErr(e.message); } finally { setTagsBusy(false); }
+  };
 
   const view = async (p) => {
     if (openId === p.id) { setOpenId(null); setDetail(null); return; }
@@ -134,6 +161,33 @@ export default function AdminPanels() {
           ))}
         </tbody>
       </table>
+
+      <section className="card" style={{ marginTop: "1.5rem" }}>
+        <h2>Tags <span className="muted small">(shared tag layout — used by all kits)</span></h2>
+        {!layout ? <p className="muted">loading…</p> : (
+          <>
+            <div className="chips">
+              {layout.column_names.map((c) => <span key={c} className="chip on">{c}</span>)}
+            </div>
+            {layout.tags_csv_key && (
+              <p><button type="button" className="secondary" onClick={downloadTags}>⭳ Download tags CSV</button></p>
+            )}
+            {tagsMsg && <p className="ok">{tagsMsg}</p>}
+            <div className="card warn-card">
+              <b>⚠️ Replacing the tags affects every kit</b>
+              <p className="muted small">The tag layout is shared by all kits, existing and new. Only replace it
+                if you are sure the new CSV is correct and keeps the PP columns your kits rely on — a wrong
+                file can break analyses. (The previous version is recoverable.)</p>
+            </div>
+            <form onSubmit={uploadTags}>
+              <label>Upload new tags CSV <span className="muted small">— header <code>Position,PP1,PP2,…</code></span>
+                <input type="file" accept=".csv" onChange={(e) => setTagsFile(e.target.files[0])} />
+              </label>
+              <button type="submit" disabled={tagsBusy}>{tagsBusy ? "Uploading…" : "Upload tags"}</button>
+            </form>
+          </>
+        )}
+      </section>
     </div>
   );
 }
