@@ -12,6 +12,11 @@ const EXPORTS = [
   ["json", "Project JSON"],
 ];
 
+const fmtPre = {
+  overflowX: "auto", fontSize: ".8rem", background: "#f6f8fa",
+  padding: ".5rem .75rem", borderRadius: "6px", margin: ".25rem 0 .75rem",
+};
+
 export default function ProjectDetail() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -25,6 +30,7 @@ export default function ProjectDetail() {
   const [access, setAccess] = useState(null);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
+  const [showFmt, setShowFmt] = useState(false);
   const [popName, setPopName] = useState("");
   const [addStudyFor, setAddStudyFor] = useState(null);
   const [newStudyName, setNewStudyName] = useState("");
@@ -154,8 +160,9 @@ export default function ProjectDetail() {
               </div>
             )}
           </div>
-          <button className="secondary" title="Import genotypes CSV (wide or long-with-sequences; auto-detected)"
-                  onClick={() => fileRef.current?.click()}>Import CSV</button>
+          <button className="secondary" title="Wide or long-with-sequences format; auto-detected"
+                  onClick={() => fileRef.current?.click()}>Import genotypes CSV</button>
+          <button type="button" className="link" onClick={() => setShowFmt((v) => !v)}>format?</button>
           <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: "none" }}
                  onChange={(e) => { const f = e.target.files[0]; if (f) importCsv(f); e.target.value = ""; }} />
           <button className="secondary" title="Upload the allele-name table (download it first, pin names with is_fixed=TRUE); others are auto-named by frequency"
@@ -166,6 +173,30 @@ export default function ProjectDetail() {
       </div>
       {err && <p className="error">{err}</p>}
       {msg && <p className="ok">{msg}</p>}
+
+      {showFmt && (
+        <section className="card">
+          <div className="row">
+            <b>Genotypes CSV format</b>
+            <span className="spacer" />
+            <button type="button" className="link" onClick={() => setShowFmt(false)}>dismiss</button>
+          </div>
+          <p className="muted small">Two layouts are accepted (auto-detected by a <code>marker</code> column).
+            Each row creates a new sample. Round-trips with <b>Export ▾ → Genotypes CSV</b>.</p>
+          <p className="muted small"><b>Wide</b> — <code>name</code> (or <code>sample</code>), optional
+            <code> population</code>, <code>study</code>, then <code>&lt;marker&gt;_1</code>/<code>&lt;marker&gt;_2</code> pairs:</p>
+          <pre style={fmtPre}>{`name,population,study,FH2001_1,FH2001_2,FH2054_1,FH2054_2
+W1,Dinaric,2025,142,146,201,201
+W2,Dinaric,2025,144,144,199,205`}</pre>
+          <p className="muted small"><b>Long</b> — <code>sample</code> (or <code>name</code>),
+            <code> marker</code>, <code>allele1</code> [<code>allele1_seq</code>, <code>allele2</code>,
+            <code>allele2_seq</code>, <code>population</code>, <code>study</code>]. Include the
+            <code> *_seq</code> columns so alleles match by sequence across sources:</p>
+          <pre style={fmtPre}>{`sample,marker,allele1,allele1_seq,allele2,allele2_seq,population,study
+W1,FH2001,142,ACGTACGTACGT,146,ACGTACGTACGTAC,Dinaric,2025
+W1,FH2054,201,,201,,Dinaric,2025`}</pre>
+        </section>
+      )}
 
       <h2>Populations &amp; studies</h2>
       {populations.length === 0 ? <p className="muted">No populations yet.</p> : (
