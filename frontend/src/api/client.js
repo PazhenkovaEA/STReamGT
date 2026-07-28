@@ -117,6 +117,10 @@ export const api = {
 
   // jobs
   createJob: (payload) => request("/jobs", { method: "POST", body: payload }),
+  inspectSampleSheet: (file) => {
+    const fd = new FormData(); fd.append("file", file);
+    return request("/jobs/sample-sheet/inspect", { method: "POST", form: fd });
+  },
   listJobs: () => request("/jobs"),
   getJob: (publicId) => request(`/jobs/${publicId}`),
   confirmJob: (publicId, proceed) =>

@@ -12,6 +12,7 @@ const newBatch = () => ({
   name: "",
   sampleMode: "upload", // "upload" | "table"
   sampleFile: null,
+  sheetWells: null,     // filled-well count of an uploaded plate (null=unknown, -1=unreadable)
   sampleRows: [],
   selectedTags: [],
 });
@@ -91,6 +92,15 @@ export default function Submit() {
 
   const setBatch = (uid, patch) =>
     setBatches((bs) => bs.map((b) => (b.uid === uid ? { ...b, ...patch } : b)));
+
+  // Pick an Excel plate: store the file, then count its filled wells so submit can require a full plate.
+  const onPickSheet = (uid, file) => {
+    setBatch(uid, { sampleFile: file || null, sheetWells: null });
+    if (!file) return;
+    api.inspectSampleSheet(file)
+      .then((r) => setBatch(uid, { sheetWells: r.wells }))
+      .catch(() => setBatch(uid, { sheetWells: -1 }));
+  };
   const toggleTag = (uid, name) =>
     setBatches((bs) =>
       bs.map((b) =>
@@ -148,6 +158,9 @@ export default function Submit() {
         const out = { name: b.name, selected_tags: b.selectedTags };
         if (b.sampleMode === "upload") {
           if (!b.sampleFile) throw new Error(`Batch ${b.name}: upload a sample sheet.`);
+          if (b.sheetWells == null) throw new Error(`Batch ${b.name}: still reading the sample sheet — wait a moment, then submit.`);
+          if (b.sheetWells < 0) throw new Error(`Batch ${b.name}: could not read the sample sheet — re-upload a plate .xlsx.`);
+          if (b.sheetWells < TOTAL_WELLS) throw new Error(`Batch ${b.name}: all ${TOTAL_WELLS} wells must be filled (currently ${b.sheetWells}).`);
           out.sample_sheet_key = await uploadFile(b.sampleFile, "sample");
         } else {
           const n = filledWellCount(b.sampleRows);
@@ -276,11 +289,24 @@ export default function Submit() {
             <fieldset>
               <legend>Samples</legend>
               <div className="tabs">
-                <button type="button" className={b.sampleMode === "upload" ? "active" : ""} onClick={() => setBatch(b.uid, { sampleMode: "upload" })}>Upload Excel</button>
+                <button type="button" className={b.sampleMode === "upload" ? "active" : ""} onClick={() => setBatch(b.uid, { sampleMode: "upload", sampleFile: null, sheetWells: null })}>Upload Excel</button>
                 <button type="button" className={b.sampleMode === "table" ? "active" : ""} onClick={() => setBatch(b.uid, { sampleMode: "table" })}>Enter samples</button>
               </div>
               {b.sampleMode === "upload" ? (
-                <input type="file" accept=".xlsx" onChange={(e) => setBatch(b.uid, { sampleFile: e.target.files[0] })} />
+                <>
+                  <input type="file" accept=".xlsx" onChange={(e) => onPickSheet(b.uid, e.target.files[0])} />
+                  {b.sampleFile && (
+                    b.sheetWells == null ? (
+                      <p className="muted small">Reading the plate…</p>
+                    ) : b.sheetWells < 0 ? (
+                      <p className="error small">Could not read the sheet — expected a plate .xlsx.</p>
+                    ) : b.sheetWells < TOTAL_WELLS ? (
+                      <p className="error small">Only {b.sheetWells} / {TOTAL_WELLS} wells filled — all {TOTAL_WELLS} are required to submit.</p>
+                    ) : (
+                      <p className="muted small"><span className="well-count ok">{b.sheetWells} / {TOTAL_WELLS} wells</span></p>
+                    )
+                  )}
+                </>
               ) : (
                 <SampleTable value={b.sampleRows} onChange={(rows) => setBatch(b.uid, { sampleRows: rows })} controls={controlsByPos} />
               )}

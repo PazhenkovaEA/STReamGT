@@ -7,7 +7,7 @@ import tempfile
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select, delete, update, func
 from sqlalchemy.orm import Session
 
@@ -59,6 +59,30 @@ def enqueue_job(job_id: int) -> None:
         from app.worker.tasks import run_pipeline
 
         run_pipeline.delay(job_id)
+
+
+@router.post("/sample-sheet/inspect")
+async def inspect_sample_sheet(
+    file: UploadFile = File(...), _: User = Depends(get_current_user)
+):
+    """Count the filled wells in an uploaded plate .xlsx so the client can enforce a full plate.
+
+    Read-only helper — does not persist anything. Returns {wells, total}.
+    """
+    from app.worker import pipeline_run as pr
+
+    data = await file.read()
+    with tempfile.NamedTemporaryFile(suffix=".xlsx") as tmp:
+        tmp.write(data)
+        tmp.flush()
+        try:
+            rows = pr.read_sample_xlsx(tmp.name)
+        except Exception:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Could not read the sample sheet — expected an .xlsx plate.",
+            )
+    return {"wells": pr.count_filled_wells(rows), "total": pr.FULL_PLATE_WELLS}
 
 
 def _safe_name(name: str) -> str:

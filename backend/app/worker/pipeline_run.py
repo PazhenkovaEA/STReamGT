@@ -137,6 +137,44 @@ def samples_text_to_rows(text: str) -> list[dict]:
     return rows
 
 
+FULL_PLATE_WELLS = 96  # a batch is one physical 96-well plate — every well must be filled
+
+
+def count_filled_wells(rows: list[dict]) -> int:
+    """Distinct wells that carry a sample name, from parsed TPositionId/SPositionBC rows."""
+    seen: set[str] = set()
+    for r in rows:
+        pos = (r.get("TPositionId") or "").strip().upper()
+        name = (r.get("SPositionBC") or "").strip()
+        if pos and name:
+            seen.add(pos)
+    return len(seen)
+
+
+def read_sample_xlsx(path: str) -> list[dict]:
+    """Read a TPositionId/SPositionBC(/control_type) .xlsx into rows (header skipped)."""
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path, read_only=True, data_only=True)
+    try:
+        ws = wb.active
+        rows: list[dict] = []
+        for cells in ws.iter_rows(values_only=True):
+            if not cells:
+                continue
+            pos = str(cells[0]).strip() if cells[0] is not None else ""
+            name = str(cells[1]).strip() if len(cells) > 1 and cells[1] is not None else ""
+            ct = str(cells[2]).strip() if len(cells) > 2 and cells[2] is not None else ""
+            if pos.lower() in ("tpositionid", "position"):  # header row
+                continue
+            if not pos and not name:
+                continue
+            rows.append({"TPositionId": pos, "SPositionBC": name, "control_type": ct})
+        return rows
+    finally:
+        wb.close()
+
+
 def write_sample_xlsx(rows: list[dict], dest_path: str) -> None:
     """Write TPositionId/SPositionBC/control_type rows to an .xlsx make_ngsfilter.py reads."""
     from openpyxl import Workbook
