@@ -215,7 +215,8 @@ def project_json(db: Session, project_id: int) -> dict:
                      "population": pops[s.population_id].name if s.population_id in pops else None,
                      "include_in_matching": s.include_in_matching} for s in studies.values()],
         "reference_alleles": [{"marker": r.marker, "sequence": r.sequence, "length": r.length,
-                               "variant": r.variant, "allele_name": r.allele_name, "n": r.n}
+                               "variant": r.variant, "allele_name": r.allele_name, "n": r.n,
+                               "is_fixed": r.is_fixed}
                               for r in ref.values()],
         "samples": [{
             "system_code": s.system_code, "name": s.name,
@@ -363,7 +364,8 @@ def import_project_json(db: Session, owner_id: int, data: dict) -> Project:
     for r in data.get("reference_alleles", []):
         db.add(ReferenceAllele(project_id=project.id, marker=r["marker"], sequence=r["sequence"],
                                length=r.get("length"), variant=r.get("variant"),
-                               allele_name=r["allele_name"], n=r.get("n")))
+                               allele_name=r["allele_name"], n=r.get("n"),
+                               is_fixed=r.get("is_fixed", False)))
     db.flush()
     alle = _allele_resolver(db, project.id)
 

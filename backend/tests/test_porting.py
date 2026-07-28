@@ -69,6 +69,28 @@ def test_json_round_trip(client, admin_token):
         assert db.get(ReferenceAllele, cg.allele1_id).sequence == "M1a"
 
 
+def test_is_fixed_survives_json_migration(client, admin_token):
+    src_id, owner = _seed()
+    with SessionLocal() as db:
+        db.query(ReferenceAllele).filter(
+            ReferenceAllele.project_id == src_id,
+            ReferenceAllele.marker == "M1", ReferenceAllele.sequence == "M1a").update(
+            {"is_fixed": True})
+        db.commit()
+        data = porting.project_json(db, src_id)
+    assert any(r["is_fixed"] for r in data["reference_alleles"])   # exported
+
+    with SessionLocal() as db:
+        nid = porting.import_project_json(db, owner, data).id
+        db.commit()
+    with SessionLocal() as db:
+        pinned = db.scalar(select(ReferenceAllele).where(
+            ReferenceAllele.project_id == nid, ReferenceAllele.sequence == "M1a"))
+        other = db.scalar(select(ReferenceAllele).where(
+            ReferenceAllele.project_id == nid, ReferenceAllele.sequence == "M1b"))
+        assert pinned.is_fixed is True and other.is_fixed is False
+
+
 def test_genotypes_csv_export_import(client, admin_token):
     src_id, owner = _seed()
     with SessionLocal() as db:
