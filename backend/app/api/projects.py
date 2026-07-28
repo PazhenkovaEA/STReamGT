@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
@@ -225,9 +225,20 @@ def attach_kit(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kit not found")
     if not current.is_admin and not any(u.id == current.id for u in kit.users):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to this kit")
+    # One study per kit: detach the kit from any other study in this project first.
+    for other in db.scalars(select(Study).where(
+            Study.project_id == study.project_id, Study.id != study.id)):
+        if any(k.id == kit.id for k in other.kits):
+            other.kits.remove(kit)
     if not any(k.id == kit.id for k in study.kits):
         study.kits.append(kit)
-        db.commit()
+    # Move the kit's samples into this study + its population (mirrors ingestion; clears the
+    # now-stale population-scoped animal grouping so matching can be re-run).
+    db.execute(
+        update(Sample)
+        .where(Sample.kit_id == kit.id, Sample.project_id == study.project_id)
+        .values(study_id=study.id, population_id=study.population_id, subgroup_id=None))
+    db.commit()
     db.refresh(study)
     return study
 
@@ -241,6 +252,11 @@ def detach_kit(
     kit = next((k for k in study.kits if k.id == kit_id), None)
     if kit is not None:
         study.kits.remove(kit)
+        # Unassign the kit's samples that were in this study.
+        db.execute(
+            update(Sample)
+            .where(Sample.kit_id == kit.id, Sample.study_id == study.id)
+            .values(study_id=None, population_id=None, subgroup_id=None))
         db.commit()
     db.refresh(study)
     return study

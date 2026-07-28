@@ -50,6 +50,54 @@ def test_attach_and_detach_kit(client, catalog, admin_token):
     assert r.status_code == 200 and r.json()["kits"] == []
 
 
+def test_attach_detach_moves_samples(client, catalog, admin_token):
+    import uuid
+    from app.models import Sample, MatchSubgroup, Sex
+    pid = client.post("/api/projects", json={"name": "P"}, headers=bearer(admin_token)).json()["id"]
+    p1 = client.post(f"/api/projects/{pid}/populations", json={"name": "P1"},
+                     headers=bearer(admin_token)).json()
+    p2 = client.post(f"/api/projects/{pid}/populations", json={"name": "P2"},
+                     headers=bearer(admin_token)).json()
+    sA = client.post(f"/api/projects/{pid}/studies", json={"name": "A", "population_id": p1["id"]},
+                     headers=bearer(admin_token)).json()
+    sB = client.post(f"/api/projects/{pid}/studies", json={"name": "B", "population_id": p2["id"]},
+                     headers=bearer(admin_token)).json()
+    kit_id = _make_kit(client, admin_token, assigned_ids=[user_id("admin@x.com")])
+
+    # two of the kit's samples, sitting in study A / pop P1, grouped into an animal
+    with SessionLocal() as db:
+        s1 = Sample(public_id=uuid.uuid4().hex, system_code="S-1", project_id=pid,
+                    population_id=p1["id"], study_id=sA["id"], kit_id=kit_id, name="X1", sex=Sex.unknown)
+        s2 = Sample(public_id=uuid.uuid4().hex, system_code="S-2", project_id=pid,
+                    population_id=p1["id"], study_id=sA["id"], kit_id=kit_id, name="X2", sex=Sex.unknown)
+        db.add_all([s1, s2]); db.flush()
+        sg = MatchSubgroup(public_id=uuid.uuid4().hex, population_id=p1["id"], label="A1",
+                           reference_sample_id=s1.id, n_samples=2)
+        db.add(sg); db.flush()
+        s1.subgroup_id = s2.subgroup_id = sg.id
+        db.commit()
+        ids = [s1.id, s2.id]
+
+    client.post(f"/api/studies/{sA['id']}/kits/{kit_id}", headers=bearer(admin_token))
+
+    # move the kit to study B -> samples follow to B / P2, animal grouping cleared, kit off study A
+    r = client.post(f"/api/studies/{sB['id']}/kits/{kit_id}", headers=bearer(admin_token))
+    assert r.status_code == 200, r.text
+    assert client.get(f"/api/studies/{sA['id']}", headers=bearer(admin_token)).json()["kits"] == []
+    assert [k["id"] for k in r.json()["kits"]] == [kit_id]
+    with SessionLocal() as db:
+        for sid in ids:
+            s = db.get(Sample, sid)
+            assert s.study_id == sB["id"] and s.population_id == p2["id"] and s.subgroup_id is None
+
+    # detach -> samples unassigned from study + population
+    client.delete(f"/api/studies/{sB['id']}/kits/{kit_id}", headers=bearer(admin_token))
+    with SessionLocal() as db:
+        for sid in ids:
+            s = db.get(Sample, sid)
+            assert s.study_id is None and s.population_id is None
+
+
 def test_attach_requires_kit_access(client, catalog, admin_token, user_token):
     """A user with project edit rights but no access to the kit cannot attach it."""
     pid, _, sid = _project(client, user_token)
