@@ -14,6 +14,7 @@ import base64
 import io
 import json
 import logging
+import re
 import sys
 
 import pandas as pd
@@ -61,8 +62,9 @@ def _frag(fig):
 
 
 def _well_row_col(position):
+    # Position is a column-major 1..96 well index: 1->A1, 2->B1, ..., 8->H1, 9->A2, ...
     p = int(position) - 1
-    return ROWS[(p // 12) % 8], (p % 12) + 1
+    return ROWS[p % 8], (p // 8) + 1
 
 
 # Control types + a colour per type for the plate marks / controls section.
@@ -85,6 +87,23 @@ def _control_type_of(df):
 
 def _is_control_series(df):
     return _control_type_of(df).isin(CONTROL_TYPES)
+
+
+def read_ngsfilter_control_types(path):
+    """Map base Sample_Name -> control_type, parsed from the ngsfilter 'control' column.
+
+    The ngsfilter (from make_ngsfilter.py) is the authoritative control source; positions.txt /
+    genotypes.txt often lack a control_type column. Its 'sample' field is NAME__POSITION__PPn and
+    its 'control' field encodes 'type=control;control_type=X;' for control wells.
+    """
+    df = read_table(path, sep=",")
+    out = {}
+    if not df.empty and {"sample", "control"} <= set(df.columns):
+        for s, c in zip(df["sample"], df["control"]):
+            m = re.search(r"control_type=([^;]+)", str(c))
+            if m and m.group(1).strip().lower() in CONTROL_TYPES:
+                out[str(s).rsplit("__", 2)[0]] = m.group(1).strip().lower()
+    return out
 
 
 # ---------------- Section 1: read-attrition funnel ----------------
@@ -205,6 +224,12 @@ def per_locus_section(genotypes):
 
 # ---------------- Section 3: plate read-count heatmaps with controls ----------------
 
+def _short(s, n=13):
+    """Truncate a long sample name for in-cell display; the full name stays available on hover."""
+    s = str(s)
+    return s if len(s) <= n else s[:n - 1] + "…"
+
+
 def _plate_figure(plates, layout_by, reads_by, ctrl_by):
     """Interactive Plotly figure for one locus: every primer plate as an 8x12 heatmap of
     read counts, with sample name + count printed in each cell and controls outlined by type
@@ -213,11 +238,12 @@ def _plate_figure(plates, layout_by, reads_by, ctrl_by):
     ncol = 2 if len(plates) > 1 else 1
     nrow = (len(plates) + ncol - 1) // ncol
     fig = make_subplots(rows=nrow, cols=ncol, subplot_titles=[f"PP{p}" for p in plates],
-                        horizontal_spacing=0.10, vertical_spacing=max(0.06, 0.16 / nrow))
+                        horizontal_spacing=0.06, vertical_spacing=max(0.06, 0.16 / nrow))
     for idx, plate in enumerate(plates):
         r, c = idx // ncol + 1, idx % ncol + 1
         z = [[None] * 12 for _ in range(8)]
-        text = [[""] * 12 for _ in range(8)]
+        disp = [[""] * 12 for _ in range(8)]   # truncated name + count shown in the cell
+        full = [[""] * 12 for _ in range(8)]   # full name + count shown on hover
         by_type = defaultdict(lambda: ([], []))   # control_type -> (xs, ys)
         for pos in range(1, 97):
             name = layout_by.get((plate, pos))
@@ -226,14 +252,15 @@ def _plate_figure(plates, layout_by, reads_by, ctrl_by):
             rr, cc = _well_row_col(pos)
             reads = reads_by.get((plate, pos), 0)
             z[ROWS.index(rr)][cc - 1] = reads
-            text[ROWS.index(rr)][cc - 1] = f"{name}<br>{reads:,}"
+            disp[ROWS.index(rr)][cc - 1] = f"{_short(name)}<br>{reads:,}"
+            full[ROWS.index(rr)][cc - 1] = f"{name}<br>{reads:,}"
             ctype = ctrl_by.get((plate, pos), "")
             if ctype in CONTROL_TYPES:
                 by_type[ctype][0].append(cc); by_type[ctype][1].append(rr)
         fig.add_trace(go.Heatmap(
-            z=z, x=list(range(1, 13)), y=ROWS, text=text, texttemplate="%{text}",
-            textfont=dict(size=9), colorscale="Blues", showscale=False, xgap=1, ygap=1,
-            hovertemplate="%{text}<extra></extra>"), row=r, col=c)
+            z=z, x=list(range(1, 13)), y=ROWS, text=disp, texttemplate="%{text}",
+            hovertext=full, textfont=dict(size=8), colorscale="Blues", showscale=False,
+            xgap=1, ygap=1, hovertemplate="%{hovertext}<extra></extra>"), row=r, col=c)
         for ctype, (cx, cy) in by_type.items():
             fig.add_trace(go.Scatter(
                 x=cx, y=cy, mode="markers", showlegend=False, hoverinfo="skip",
@@ -242,7 +269,7 @@ def _plate_figure(plates, layout_by, reads_by, ctrl_by):
                             line=dict(width=3))), row=r, col=c)
     fig.update_xaxes(side="top", dtick=1, tickfont=dict(size=10), constrain="domain")
     fig.update_yaxes(autorange="reversed", tickfont=dict(size=10))
-    fig.update_layout(height=300 * nrow + 40, margin=dict(t=40, l=20, r=10, b=10),
+    fig.update_layout(height=340 * nrow + 40, margin=dict(t=40, l=20, r=10, b=10),
                       plot_bgcolor="#f9fafb", font=dict(size=11))
     return fig
 
@@ -421,6 +448,7 @@ def main():
     ap.add_argument("--frequency")
     ap.add_argument("--consensus")
     ap.add_argument("--reference_alleles")
+    ap.add_argument("--ngsfilter")
     ap.add_argument("--parameters_file_path", default="/usr/local/bin/parameters.json")
     ap.add_argument("--expected_reads", type=int, default=None)
     args = ap.parse_args()
@@ -439,6 +467,16 @@ def main():
     positions = read_table(args.positions)
     consensus = read_table(args.consensus)
     reference = read_table(args.reference_alleles)
+
+    # Control types come from the ngsfilter (positions/genotypes lack a control_type column). Enrich
+    # both frames once so every _control_type_of() consumer (plate heatmap, controls table, per-locus
+    # exclusion) picks them up.
+    name_ctypes = read_ngsfilter_control_types(args.ngsfilter)
+    if name_ctypes:
+        for df in (genotypes, positions):
+            if not df.empty and "Sample_Name" in df.columns:
+                df["control_type"] = df["Sample_Name"].map(name_ctypes).fillna("")
+        log.info("ngsfilter control types: %d control samples", len(name_ctypes))
 
     body = (
         f"<h1>{args.kit_id} — run report</h1>"

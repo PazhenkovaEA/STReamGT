@@ -11,6 +11,7 @@ process REPORT {
     path frequency
     path consensus
     path reference_alleles
+    path ngsfilter
 
     output:
     path("${params.kit_id}_report.html")
@@ -27,6 +28,7 @@ process REPORT {
         --frequency ${frequency} \
         --consensus ${consensus} \
         --reference_alleles ${reference_alleles} \
+        --ngsfilter ${ngsfilter} \
         ${expected}
     """
 }

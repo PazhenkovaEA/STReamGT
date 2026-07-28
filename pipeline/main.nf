@@ -131,7 +131,8 @@ workflow {
         merged.positions,
         merged.frequency,
         consensus_ch.consensus,
-        consensus_ch.reference
+        consensus_ch.reference,
+        ngsfilter
     )
 
 
