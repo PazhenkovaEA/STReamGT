@@ -67,6 +67,70 @@ def genotypes_csv(db: Session, project_id: int) -> str:
     return buf.getvalue()
 
 
+def allele_names_csv(db: Session, project_id: int) -> str:
+    """Round-trip allele-name table: marker, sequence, allele_name, is_fixed, length, reads."""
+    from app.services.allele_naming import project_read_totals
+    totals = project_read_totals(db, project_id)
+    rows = list(db.scalars(
+        select(ReferenceAllele).where(ReferenceAllele.project_id == project_id)))
+
+    def key(a):
+        length = a.length if a.length is not None else len(a.sequence or "")
+        return (a.marker, length, -(totals.get((a.marker, a.sequence)) or 0), a.sequence or "")
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["marker", "sequence", "allele_name", "is_fixed", "length", "reads"])
+    for a in sorted(rows, key=key):
+        w.writerow([a.marker, a.sequence, a.allele_name, "TRUE" if a.is_fixed else "FALSE",
+                    a.length if a.length is not None else "",
+                    totals.get((a.marker, a.sequence), a.n or 0)])
+    return buf.getvalue()
+
+
+_TRUE = {"1", "true", "yes", "y", "t", "fixed"}
+
+
+def import_allele_names(db: Session, project_id: int, text: str) -> dict:
+    """Apply an uploaded name table: pin the listed names (fixed), then auto-name the rest by frequency.
+
+    Match by (marker, sequence). `is_fixed` column is optional — absent ⇒ every row is treated as fixed.
+    """
+    reader = csv.DictReader(io.StringIO(text))
+    cols = set(reader.fieldnames or [])
+    if not {"marker", "sequence", "allele_name"} <= cols:
+        raise ValueError("allele-name CSV needs columns: marker, sequence, allele_name [, is_fixed]")
+    has_fixed = "is_fixed" in cols
+    by_seq = {(r.marker, r.sequence): r for r in db.scalars(
+        select(ReferenceAllele).where(ReferenceAllele.project_id == project_id))}
+
+    fixed_names: dict[int, str] = {}
+    unmatched: list[str] = []
+    for row in reader:
+        marker = (row.get("marker") or "").strip()
+        sequence = (row.get("sequence") or "").strip()
+        name = (row.get("allele_name") or "").strip()
+        if not marker or not sequence:
+            continue
+        a = by_seq.get((marker, sequence))
+        if a is None:
+            unmatched.append(f"{marker}:{sequence[:12]}…")
+            continue
+        is_fixed = (row.get("is_fixed") or "").strip().lower() in _TRUE if has_fixed else True
+        if is_fixed:
+            if not name:
+                raise ValueError(f"fixed allele {marker}/{sequence[:12]}… has an empty allele_name")
+            fixed_names[a.id] = name
+        else:
+            a.is_fixed = False                 # explicit un-pin → back to auto
+    db.flush()
+
+    from app.services.allele_naming import renormalize_allele_names
+    summary = renormalize_allele_names(db, project_id, fixed_names=fixed_names)
+    return {"fixed": len(fixed_names), "names_changed": summary["renamed"],
+            "total": summary["alleles"], "unmatched": unmatched[:20]}
+
+
 def metadata_csv(db: Session, project_id: int) -> str:
     _p, pops, studies, samples, _c, subgroups, _m = _load(db, project_id)
     buf = io.StringIO()

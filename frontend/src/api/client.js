@@ -151,6 +151,10 @@ export const api = {
     const fd = new FormData(); fd.append("file", file);
     return request("/projects/import", { method: "POST", form: fd });
   },
+  importAlleleNames: (id, file) => {
+    const fd = new FormData(); fd.append("file", file);
+    return request(`/projects/${id}/import/allele-names`, { method: "POST", form: fd });
+  },
   listPopulations: (id) => request(`/projects/${id}/populations`),
   createPopulation: (id, payload) =>
     request(`/projects/${id}/populations`, { method: "POST", body: payload }),

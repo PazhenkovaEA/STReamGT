@@ -8,6 +8,7 @@ const EXPORTS = [
   ["metadata", "Metadata CSV"],
   ["animals", "Animals CSV"],
   ["genepop", "GenePop"],
+  ["allele_names", "Allele names CSV"],
   ["json", "Project JSON"],
 ];
 
@@ -16,6 +17,7 @@ export default function ProjectDetail() {
   const nav = useNavigate();
   const { user } = useAuth();
   const fileRef = useRef(null);
+  const alleleRef = useRef(null);
   const [project, setProject] = useState(null);
   const [populations, setPopulations] = useState([]);
   const [studies, setStudies] = useState([]);
@@ -78,6 +80,11 @@ export default function ProjectDetail() {
   const importCsv = (file) => act(async () => {
     const r = await api.importGenotypes(id, file);
     setMsg(`Imported ${r.samples} samples, ${r.consensus} genotypes (${r.markers} markers).`);
+  });
+  const importAlleleNames = (file) => act(async () => {
+    const r = await api.importAlleleNames(id, file);
+    const extra = r.unmatched?.length ? `, ${r.unmatched.length} unmatched` : "";
+    setMsg(`Pinned ${r.fixed} name(s); ${r.names_changed} of ${r.total} allele names updated${extra}.`);
   });
   const deleteProj = async () => {
     setErr(null);
@@ -151,6 +158,10 @@ export default function ProjectDetail() {
                   onClick={() => fileRef.current?.click()}>Import CSV</button>
           <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: "none" }}
                  onChange={(e) => { const f = e.target.files[0]; if (f) importCsv(f); e.target.value = ""; }} />
+          <button className="secondary" title="Upload the allele-name table (download it first, pin names with is_fixed=TRUE); others are auto-named by frequency"
+                  onClick={() => alleleRef.current?.click()}>Upload allele names</button>
+          <input ref={alleleRef} type="file" accept=".csv,text/csv" style={{ display: "none" }}
+                 onChange={(e) => { const f = e.target.files[0]; if (f) importAlleleNames(f); e.target.value = ""; }} />
         </div>
       </div>
       {err && <p className="error">{err}</p>}

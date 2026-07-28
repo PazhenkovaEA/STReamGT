@@ -52,6 +52,8 @@ DDL = [
         uploaded_by integer REFERENCES users(id),
         uploaded_at timestamptz NOT NULL DEFAULT now()
     )""",
+    # 0009 — curated (pinned) reference-allele names
+    "ALTER TABLE reference_alleles ADD COLUMN IF NOT EXISTS is_fixed boolean NOT NULL DEFAULT false",
 ]
 
 

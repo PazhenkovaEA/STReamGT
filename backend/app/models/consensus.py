@@ -108,6 +108,8 @@ class ReferenceAllele(Base):
     variant: Mapped[int | None] = mapped_column(Integer)
     allele_name: Mapped[str] = mapped_column(String(64), nullable=False)
     n: Mapped[int | None] = mapped_column(Integer)
+    # Curated names: True = pinned by a user upload (reserved, never auto-renamed); False = auto by frequency.
+    is_fixed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

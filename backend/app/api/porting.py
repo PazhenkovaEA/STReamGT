@@ -20,6 +20,7 @@ _CSV_EXPORTS = {
     "metadata": ("samples_metadata.csv", "text/csv", porting.metadata_csv),
     "animals": ("animals.csv", "text/csv", porting.animals_csv),
     "genepop": ("genepop.txt", "text/plain", porting.genepop),
+    "allele_names": ("allele_names.csv", "text/csv", porting.allele_names_csv),
 }
 
 
@@ -53,6 +54,21 @@ async def import_genotypes(
     text = (await file.read()).decode("utf-8-sig", errors="replace")
     try:
         summary = porting.import_genotypes(db, project_id, text)   # auto-detects wide vs long
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+    db.commit()
+    return summary
+
+
+@router.post("/projects/{project_id}/import/allele-names")
+async def import_allele_names(
+    project_id: int, file: UploadFile = File(...),
+    db: Session = Depends(get_db), current: User = Depends(get_current_user),
+):
+    get_accessible_project(project_id, need_edit=True, db=db, user=current)
+    text = (await file.read()).decode("utf-8-sig", errors="replace")
+    try:
+        summary = porting.import_allele_names(db, project_id, text)
     except ValueError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
     db.commit()
