@@ -91,57 +91,11 @@ def test_is_fixed_survives_json_migration(client, admin_token):
         assert pinned.is_fixed is True and other.is_fixed is False
 
 
-def test_genotypes_csv_export_import(client, admin_token):
-    src_id, owner = _seed()
+def test_genotypes_csv_export(client, admin_token):
+    src_id, _ = _seed()
     with SessionLocal() as db:
         csv_text = porting.genotypes_csv(db, src_id)
     assert "M1_1" in csv_text and "M1_2" in csv_text and "W1" in csv_text
-
-    # import into a fresh project
-    with SessionLocal() as db:
-        u = db.scalar(select(User).where(User.email == "admin@x.com"))
-        dest = Project(public_id=uuid.uuid4().hex, name="Dest", owner_user_id=u.id)
-        db.add(dest); db.flush()
-        summary = porting.import_genotypes_csv(db, dest.id, csv_text)
-        db.commit()
-        did = dest.id
-    assert summary == {"samples": 2, "consensus": 6, "markers": 3}
-    with SessionLocal() as db:
-        cg = db.scalar(select(ConsensusGenotype).join(Sample)
-                       .where(Sample.project_id == did, ConsensusGenotype.marker == "M1"))
-        assert cg.allele1 == "a" and cg.allele2 == "b"          # names preserved
-        assert cg.allele1_id is not None                         # identity synthesised/aligned
-
-
-LONG_CSV = (
-    "sample,population,study,marker,allele1,allele1_seq,allele2,allele2_seq\n"
-    "W-1,Din,2025,M1,12,AAAACCCCGGGG,14,AAAACCCCGGGGTT\n"
-    "W-1,Din,2025,M2,10,AAAA,,\n"          # homozygote (no allele2)
-    "W-2,Din,2025,M1,12,AAAACCCCGGGG,14,AAAACCCCGGGGTT\n"   # identical sequences -> same allele id
-)
-
-
-def test_long_csv_with_sequences(client, admin_token):
-    with SessionLocal() as db:
-        u = db.scalar(select(User).where(User.email == "admin@x.com"))
-        proj = Project(public_id=uuid.uuid4().hex, name="Long", owner_user_id=u.id)
-        db.add(proj); db.flush(); pid = proj.id
-        summary = porting.import_genotypes(db, pid, LONG_CSV)   # dispatcher -> long importer
-        db.commit()
-    assert summary == {"samples": 2, "consensus": 3, "markers": 2}
-
-    with SessionLocal() as db:
-        def cg(name, marker):
-            return db.scalar(select(ConsensusGenotype).join(Sample).where(
-                Sample.project_id == pid, Sample.name == name, ConsensusGenotype.marker == marker))
-        c1 = cg("W-1", "M1")
-        # true sequence identity — the real sequence, NOT the synthetic "M1:12"
-        assert db.get(ReferenceAllele, c1.allele1_id).sequence == "AAAACCCCGGGG"
-        # identical sequences across samples resolve to the SAME allele id (matchable)
-        assert c1.allele1_id == cg("W-2", "M1").allele1_id
-        # homozygote row: allele2 empty
-        m2 = cg("W-1", "M2")
-        assert m2.allele1 == "10" and m2.allele2 is None
 
 
 def test_genepop_and_csv_exports(client, admin_token):

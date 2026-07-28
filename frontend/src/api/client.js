@@ -143,10 +143,6 @@ export const api = {
   listProjectAccess: (id) => request(`/projects/${id}/access`),
   unshareProject: (id, userId) => request(`/projects/${id}/share/${userId}`, { method: "DELETE" }),
   // import / export
-  importGenotypes: (id, file) => {
-    const fd = new FormData(); fd.append("file", file);
-    return request(`/projects/${id}/import/genotypes`, { method: "POST", form: fd });
-  },
   importProjectJson: (file) => {
     const fd = new FormData(); fd.append("file", file);
     return request("/projects/import", { method: "POST", form: fd });

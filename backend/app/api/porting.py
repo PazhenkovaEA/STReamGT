@@ -45,21 +45,6 @@ def export_project(
         "Content-Disposition": f'attachment; filename="{filename}"'})
 
 
-@router.post("/projects/{project_id}/import/genotypes")
-async def import_genotypes(
-    project_id: int, file: UploadFile = File(...),
-    db: Session = Depends(get_db), current: User = Depends(get_current_user),
-):
-    get_accessible_project(project_id, need_edit=True, db=db, user=current)
-    text = (await file.read()).decode("utf-8-sig", errors="replace")
-    try:
-        summary = porting.import_genotypes(db, project_id, text)   # auto-detects wide vs long
-    except ValueError as e:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
-    db.commit()
-    return summary
-
-
 @router.post("/projects/{project_id}/import/allele-names")
 async def import_allele_names(
     project_id: int, file: UploadFile = File(...),
