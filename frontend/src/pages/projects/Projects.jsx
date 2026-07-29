@@ -7,16 +7,23 @@ export default function Projects() {
   const [err, setErr] = useState(null);
   const [name, setName] = useState("");
   const [organisation, setOrganisation] = useState("");
+  const [species, setSpecies] = useState("");
+  const [speciesOpts, setSpeciesOpts] = useState([]);
 
   const load = () => api.listProjects().then(setProjects).catch((e) => setErr(e.message));
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api.listKits()
+      .then((kits) => setSpeciesOpts([...new Set(kits.map((k) => k.species).filter(Boolean))].sort()))
+      .catch(() => {});
+  }, []);
 
   const create = async (e) => {
     e.preventDefault();
     setErr(null);
     try {
-      await api.createProject({ name, organisation: organisation || null });
-      setName(""); setOrganisation("");
+      await api.createProject({ name, organisation: organisation || null, species: species || null });
+      setName(""); setOrganisation(""); setSpecies("");
       load();
     } catch (e2) { setErr(e2.message); }
   };
@@ -41,6 +48,11 @@ export default function Projects() {
         <div className="row">
           <input placeholder="Project name" value={name} onChange={(e) => setName(e.target.value)} required />
           <input placeholder="Organisation (optional)" value={organisation} onChange={(e) => setOrganisation(e.target.value)} />
+          <select value={species} onChange={(e) => setSpecies(e.target.value)}
+                  title="A project holds one species; leave blank to set it from the first kit assigned">
+            <option value="">Species — set from first kit</option>
+            {speciesOpts.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
           <button type="submit">Create</button>
         </div>
         <div className="row" style={{ marginTop: ".5rem" }}>

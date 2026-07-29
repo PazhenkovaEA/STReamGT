@@ -150,7 +150,7 @@ export default function ProjectDetail() {
       <p><Link to="/projects">← Projects</Link></p>
       <div className="detail-head">
         <div>
-          <h1>{project.name}</h1>
+          <h1>{project.name}{project.species && <span className="badge" style={{ marginLeft: ".5rem", verticalAlign: "middle" }}>{project.species}</span>}</h1>
           <p className="muted">{project.organisation || ""}</p>
         </div>
         <div className="toolbar">

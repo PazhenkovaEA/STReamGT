@@ -228,6 +228,15 @@ def create_job(
         _resolve_target(db, current, payload.project_id,
                         payload.default_population_id, payload.default_study_id)
 
+    # One species per project: this kit must match (or set) the target project's species.
+    if payload.project_id is not None:
+        from app.models import Project
+        from app.services.species import bind_project_species
+        try:
+            bind_project_species(db.get(Project, payload.project_id), kit)
+        except ValueError as e:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+
     public_id = str(uuid.uuid4())
     job = Job(
         public_id=public_id,
@@ -410,6 +419,14 @@ def ingest_job(
                             "Only a succeeded job can be ingested into a project.")
     _resolve_target(db, current, payload.project_id,
                     payload.default_population_id, payload.default_study_id)
+
+    if payload.project_id is not None:
+        from app.models import Project
+        from app.services.species import bind_project_species
+        try:
+            bind_project_species(db.get(Project, payload.project_id), db.get(Kit, job.kit_id))
+        except ValueError as e:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
 
     job.project_id = payload.project_id
     job.default_population_id = payload.default_population_id

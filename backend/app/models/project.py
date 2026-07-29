@@ -47,6 +47,8 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     organisation: Mapped[str | None] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(String(2048))
+    # A project holds one species (denormalized from its kits' panels); null = not yet constrained.
+    species: Mapped[str | None] = mapped_column(String(128))
     owner_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

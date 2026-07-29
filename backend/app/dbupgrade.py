@@ -54,6 +54,15 @@ DDL = [
     )""",
     # 0009 — curated (pinned) reference-allele names
     "ALTER TABLE reference_alleles ADD COLUMN IF NOT EXISTS is_fixed boolean NOT NULL DEFAULT false",
+    # 0010 — one species per project (+ backfill from existing samples when uniform)
+    "ALTER TABLE projects ADD COLUMN IF NOT EXISTS species varchar(128)",
+    """UPDATE projects p SET species = sub.sp FROM (
+        SELECT s.project_id, MIN(k.species) AS sp
+        FROM samples s JOIN kits k ON k.id = s.kit_id
+        WHERE k.species IS NOT NULL
+        GROUP BY s.project_id
+        HAVING COUNT(DISTINCT k.species) = 1
+    ) sub WHERE p.id = sub.project_id AND p.species IS NULL""",
 ]
 
 

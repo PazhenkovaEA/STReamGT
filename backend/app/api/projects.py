@@ -53,7 +53,7 @@ def create_project(
     project = Project(
         public_id=uuid.uuid4().hex, name=payload.name,
         organisation=payload.organisation, description=payload.description,
-        owner_user_id=current.id,
+        species=(payload.species or None), owner_user_id=current.id,
     )
     db.add(project)
     db.commit()
@@ -225,6 +225,13 @@ def attach_kit(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kit not found")
     if not current.is_admin and not any(u.id == current.id for u in kit.users):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to this kit")
+    # One species per project: the kit's species must match (or set) the project's.
+    from app.services.species import bind_project_species
+    project = db.get(Project, study.project_id)
+    try:
+        bind_project_species(project, kit)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
     # One study per kit: detach the kit from any other study in this project first.
     for other in db.scalars(select(Study).where(
             Study.project_id == study.project_id, Study.id != study.id)):

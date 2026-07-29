@@ -11,6 +11,7 @@ class ProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     organisation: str | None = None
     description: str | None = None
+    species: str | None = None
 
 
 class ProjectOut(BaseModel):
@@ -20,6 +21,7 @@ class ProjectOut(BaseModel):
     name: str
     organisation: str | None
     description: str | None
+    species: str | None
     owner_user_id: int
     created_at: datetime
 
