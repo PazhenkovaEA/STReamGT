@@ -212,10 +212,9 @@ export default function JobDetail() {
 
       {job.status === "succeeded" && (
         <>
-          <h2>Results</h2>
           {results.some((r) => !CONSENSUS_KINDS.includes(r.kind) && !HIDDEN_KINDS.includes(r.kind)) && (
             <div className="card">
-              <h3>Files</h3>
+              <h3>Results</h3>
               <ul className="results">
                 {results
                   .filter((r) => !CONSENSUS_KINDS.includes(r.kind) && !HIDDEN_KINDS.includes(r.kind))
