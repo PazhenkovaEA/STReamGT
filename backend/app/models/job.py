@@ -53,6 +53,7 @@ class Job(Base):
     min_identity: Mapped[float] = mapped_column(Float, default=0.9, nullable=False)
     min_overlap: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
     expected_read_number: Mapped[int | None] = mapped_column(BigInteger)
+    parameters: Mapped[dict | None] = mapped_column(JSON)   # merged pipeline parameters the run used
     observed_read_count: Mapped[int | None] = mapped_column(BigInteger)  # counted at pre-flight
     reads_confirmed: Mapped[bool] = mapped_column(default=False, nullable=False)  # user OK'd low reads
 

@@ -220,6 +220,19 @@ export default function JobDetail() {
         </tbody>
       </table>
 
+      {job.parameters && Object.keys(job.parameters).length > 0 && (
+        <details className="card">
+          <summary><b>Parameters</b> <span className="muted small">— pipeline settings this run used</span></summary>
+          <table className="table">
+            <tbody>
+              {Object.entries(job.parameters).map(([k, v]) => (
+                <tr key={k}><td className="mono small">{k}</td><td>{String(v)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
+
       {job.status === "succeeded" && (
         <>
           {results.some((r) => !CONSENSUS_KINDS.includes(r.kind) && !HIDDEN_KINDS.includes(r.kind)) && (

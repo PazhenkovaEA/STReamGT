@@ -63,6 +63,8 @@ DDL = [
         GROUP BY s.project_id
         HAVING COUNT(DISTINCT k.species) = 1
     ) sub WHERE p.id = sub.project_id AND p.species IS NULL""",
+    # 0011 — per-run pipeline parameters actually used
+    "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS parameters json",
 ]
 
 

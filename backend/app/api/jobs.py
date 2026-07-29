@@ -20,6 +20,7 @@ from app.models import (
 )
 from app.auth.deps import get_current_user
 from app.services import storage, notify
+from app.services.pipeline_params import default_parameters, merge_parameters
 from app.services.storage import DEFAULT_PART_SIZE
 from app.schemas.job import (
     UploadInitRequest,
@@ -60,6 +61,12 @@ def enqueue_job(job_id: int) -> None:
         from app.worker.tasks import run_pipeline
 
         run_pipeline.delay(job_id)
+
+
+@router.get("/parameters/defaults")
+def get_parameter_defaults(current: User = Depends(get_current_user)):
+    """Default pipeline parameters, for the Submit page's advanced section."""
+    return default_parameters()
 
 
 @router.post("/sample-sheet/inspect")
@@ -249,6 +256,7 @@ def create_job(
         min_identity=payload.min_identity,
         min_overlap=payload.min_overlap,
         expected_read_number=payload.expected_read_number,
+        parameters=merge_parameters(payload.parameters),
         project_id=payload.project_id,
         default_population_id=payload.default_population_id,
         default_study_id=payload.default_study_id,

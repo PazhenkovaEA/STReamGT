@@ -182,6 +182,15 @@ def execute_job(job_id: int) -> str:
         with open(input_tsv, "w") as fh:
             fh.write(tsv)
 
+        # 2b. Per-run pipeline parameters (the merged set stored on the job); the scripts read this
+        #     instead of the baked /usr/local/bin/parameters.json.
+        params_path = None
+        if job.parameters:
+            import json
+            params_path = os.path.join(inputs_dir, "parameters.json")
+            with open(params_path, "w") as fh:
+                json.dump(job.parameters, fh)
+
         # 3. Run Nextflow (outputs land at {scratch}/{kit_code}/...; the pipeline's REPORT
         #    process generates the HTML reports, so no separate render step here).
         set_status(JobStatus.running)
@@ -192,6 +201,7 @@ def execute_job(job_id: int) -> str:
                 profile=settings.nextflow_profile,
                 min_identity=job.min_identity, min_overlap=job.min_overlap,
                 expected_read_number=job.expected_read_number,
+                parameters_file_path=params_path,
             ),
             cwd=scratch, log_path=log_path,
         )

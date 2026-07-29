@@ -61,6 +61,7 @@ class JobCreate(BaseModel):
     min_identity: float = 0.9
     min_overlap: int = 20
     expected_read_number: int | None = None
+    parameters: dict | None = None    # overrides for pipeline parameters.json (partial dict)
     batches: list[SampleBatchIn] = Field(min_length=1)
     # Optional: ingest this job's samples into a project (animal/matching layer).
     project_id: int | None = None
@@ -96,6 +97,7 @@ class JobOut(BaseModel):
     min_identity: float
     min_overlap: int
     expected_read_number: int | None
+    parameters: dict | None = None
     observed_read_count: int | None
     reads_confirmed: bool
     error_message: str | None

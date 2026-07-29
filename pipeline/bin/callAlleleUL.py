@@ -297,7 +297,6 @@ def main():
         except ValueError as e:
             _die(locus, f"invalid snp --locus_sequence: {e}")
 
-    progressive_threshold = _as_bool(args.progressive_threshold)
     alleles_only = _as_bool(args.alleles_only)
 
     try:
@@ -305,6 +304,8 @@ def main():
             parameters = json.load(f)
     except (OSError, json.JSONDecodeError) as e:
         _die(locus, f"could not read parameters JSON {args.parameters_file_path}: {e}")
+    # progressive_threshold is a parameter now; fall back to the CLI flag for back-compat.
+    progressive_threshold = _as_bool(parameters.get("progressive_threshold", args.progressive_threshold))
     missing = [k for k in REQUIRED_PARAMETERS if k not in parameters]
     if missing:
         _die(locus, f"parameters file is missing keys: {missing}")

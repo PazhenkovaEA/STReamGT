@@ -12,7 +12,7 @@ process CALL_ALLELES{
 
     script:
     """
-    callAlleleUL.py --kit_id ${params.kit_id} --sample_count ${counts_csv} --sequence_data ${locus_csv} --locus_name ${locus_name} --locus_type ${locus_type} --locus_sequence ${locus_sequence} --ngsfilter_path ${ngsfilter_file}
+    callAlleleUL.py --kit_id ${params.kit_id} --sample_count ${counts_csv} --sequence_data ${locus_csv} --locus_name ${locus_name} --locus_type ${locus_type} --locus_sequence ${locus_sequence} --ngsfilter_path ${ngsfilter_file} --parameters_file_path ${params.parameters_file_path}
     """
     
 }
@@ -67,6 +67,7 @@ process CONSENSUS {
     callConsensus.py --kit_id ${params.kit_id} \
         --genotypes ${genotypes_file} \
         --frequency ${frequency_file} \
-        --positions ${positions_file}
+        --positions ${positions_file} \
+        --parameters_file_path ${params.parameters_file_path}
     """
 }

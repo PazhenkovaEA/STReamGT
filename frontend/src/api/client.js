@@ -119,6 +119,7 @@ export const api = {
 
   // jobs
   createJob: (payload) => request("/jobs", { method: "POST", body: payload }),
+  getParameterDefaults: () => request("/jobs/parameters/defaults"),
   inspectSampleSheet: (file) => {
     const fd = new FormData(); fd.append("file", file);
     return request("/jobs/sample-sheet/inspect", { method: "POST", form: fd });

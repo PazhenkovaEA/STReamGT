@@ -11,5 +11,6 @@
 "AlleleAcceptanceThreshold": 2,
 "AlleleAcceptanceThreshold_hetero": 2,
 "negative_name": "blank",
-"discard_threshold": 1
+"discard_threshold": 1,
+"progressive_threshold": true
 }

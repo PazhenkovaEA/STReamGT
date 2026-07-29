@@ -7,6 +7,7 @@ params.input = "input.tsv"
 params.min_identity = 0.9
 params.min_overlap = 20
 params.expected_read_number = null   // optional: shown as a reference line in the report
+params.parameters_file_path = "/usr/local/bin/parameters.json"   // per-run overrides written by the worker
 
 // extract kit_id from TSV
 kit_id_val = file(params.input)

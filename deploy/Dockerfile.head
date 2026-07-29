@@ -44,7 +44,8 @@ COPY pipeline /app/pipeline
 # Pipeline processes call the Python bin scripts from PATH (/usr/local/bin, inherited from the
 # OBITools base). Override them with the current versions so bin/ changes ship with THIS image —
 # otherwise make_report.py etc. stay pinned to whatever the base image baked.
-RUN cp /app/pipeline/bin/*.py /usr/local/bin/ && chmod +x /usr/local/bin/*.py
+RUN cp /app/pipeline/bin/*.py /usr/local/bin/ && chmod +x /usr/local/bin/*.py \
+    && cp /app/pipeline/bin/parameters.json /usr/local/bin/parameters.json
 RUN mkdir -p /scratch
 
 # API overrides with uvicorn; the head task runs run_job (JOB_ID appended by RunTask).

@@ -32,10 +32,13 @@ export default function Submit() {
   const [jobs, setJobs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [paramDefaults, setParamDefaults] = useState(null);
+  const [params, setParams] = useState({});
 
   useEffect(() => {
     api.listKits().then(setKits).catch((e) => setErr(e.message));
     api.listJobs().then(setJobs).catch(() => {});
+    api.getParameterDefaults().then((d) => { setParamDefaults(d); setParams(d); }).catch(() => {});
   }, []);
 
   const kit = kits.find((k) => String(k.id) === String(kitId));
@@ -177,6 +180,7 @@ export default function Submit() {
         fastq1_ref,
         fastq2_ref,
         expected_read_number: Number(expectedReads) || null,
+        parameters: params,
         batches: outBatches,
       };
       if (target.project_id) {
@@ -349,6 +353,33 @@ export default function Submit() {
         })}
 
         <button type="button" className="secondary" onClick={() => setBatches((bs) => [...bs, newBatch()])}>+ add another sample batch</button>
+
+        {paramDefaults && (
+          <details className="card">
+            <summary><b>Advanced parameters</b> <span className="muted small">— allele-calling thresholds; defaults are usually right</span></summary>
+            <div className="row">
+              <span className="spacer" />
+              <button type="button" className="link" onClick={() => setParams(paramDefaults)}>reset to defaults</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".4rem 1rem" }}>
+              {Object.entries(paramDefaults).map(([k, def]) => (
+                <label key={k} className="inline-label" style={{ justifyContent: "space-between" }}>
+                  <span className="mono small">{k}</span>
+                  {typeof def === "boolean" ? (
+                    <input type="checkbox" checked={!!params[k]}
+                           onChange={(e) => setParams((p) => ({ ...p, [k]: e.target.checked }))} />
+                  ) : typeof def === "string" ? (
+                    <input value={params[k] ?? ""} style={{ width: "8rem" }}
+                           onChange={(e) => setParams((p) => ({ ...p, [k]: e.target.value }))} />
+                  ) : (
+                    <input type="number" step="any" value={params[k] ?? ""} style={{ width: "8rem" }}
+                           onChange={(e) => setParams((p) => ({ ...p, [k]: e.target.value === "" ? def : Number(e.target.value) }))} />
+                  )}
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
 
         <div className="submit-bar">
           <button type="submit" disabled={busy || kit?.status === "analysed" || kitBusy}>{busy ? "Submitting…" : "Submit analysis"}</button>

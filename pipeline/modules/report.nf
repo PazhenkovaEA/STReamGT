@@ -29,6 +29,7 @@ process REPORT {
         --consensus ${consensus} \
         --reference_alleles ${reference_alleles} \
         --ngsfilter ${ngsfilter} \
+        --parameters_file_path ${params.parameters_file_path} \
         ${expected}
     """
 }

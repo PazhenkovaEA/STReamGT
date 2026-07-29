@@ -53,6 +53,7 @@ _RESULT_SUFFIXES = {
 def build_nextflow_cmd(
     *, pipeline_dir: str, input_tsv: str, run_dir: str, profile: str,
     min_identity: float, min_overlap: int, expected_read_number: int | None = None,
+    parameters_file_path: str | None = None,
 ) -> list[str]:
     """Argument vector for `nextflow run`, meant to run with cwd=run_dir.
 
@@ -71,6 +72,8 @@ def build_nextflow_cmd(
     ]
     if expected_read_number:  # drives the reference line in the HTML report
         cmd += ["--expected_read_number", str(expected_read_number)]
+    if parameters_file_path:  # per-run pipeline thresholds (else scripts use the baked default)
+        cmd += ["--parameters_file_path", parameters_file_path]
     return cmd
 
 
