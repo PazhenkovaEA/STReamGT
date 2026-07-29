@@ -1,14 +1,14 @@
 # STReamGT — Glossary
 
-Plain definitions of the terms you'll meet in the app and in your results. Ordered roughly by where they turn up — from a physical kit through to a matched animal — not alphabetically.
-
+Plain definitions of the terms you'll meet in the app and in your results. 
 ------------------------------------------------------------------------
 
 ## The lab side
 
 ### Kit
 
-A physical library you receive in the post: a 96-well (8×12) plate preloaded for one species, together with the barcodes and primers needed to sequence it. You fill the wells with your samples, run them, and upload the reads. In the app a kit already knows its species, **primer panel** and **tag** layout, so there's nothing to configure. A kit moves through statuses — **sent → received → analysed** (and **reanalyse** if you run it again). One kit = one library = up to 96 wells.
+A physical library you receive in the post: a 96-well (8×12) plate preloaded for one species, together with the **tags** and **primers** needed to sequence it. You fill the wells with your samples, run them, and upload the reads. In the app a kit already knows its species, **primer panel** and **tag** layout, so there's nothing to configure. A kit moves through statuses — **sent → received → analysed** (and **reanalyse** if you run it again). One kit = one library = up to 96 wells.
+
 
 ### Primer panel
 
@@ -35,9 +35,9 @@ Controls are typed (blank/sequencing, PCR, extraction, positive), coloured on th
 
 ## The analysis
 
-### Analysis (bioinformatics)
+### Analysis 
 
-The automatic pipeline run that turns your raw reads into genotypes. It pairs and filters the reads, un-pools them by tag, calls alleles in every replicate, and builds a **consensus** per sample. You start it from the app — one submission is one **run** (a *job*) — and a couple of hours later you get result files and reports. No bioinformatics knowledge needed on your side.
+The bioinformatics pipeline run that turns your raw reads into genotypes. It pairs and filters the reads, demultiplex them by tags and primers, calls alleles in every replicate, and builds a **consensus** per sample. You start it from the app — one submission is one **run** (a *job*) — and a couple of hours later you get result files and reports. No bioinformatics knowledge needed.
 
 ### Reads / FASTQ
 
@@ -45,11 +45,14 @@ The sequencer's raw output: millions of short DNA sequences in `.fastq` files. T
 
 ### Marker (locus)
 
-One spot in the genome that gets genotyped — a microsatellite (STR) or a SNP. The panel lists them, and genotypes are reported per marker. A wolf panel might carry ~20 microsatellites plus a couple of sex markers.
+One place in the genome that gets genotyped — a microsatellite (STR) or a SNP. The panel lists them, and genotypes are reported per marker. 
 
 ### Allele
 
-One version of a marker. Its real identity is its **DNA sequence**, not its name. Microsatellite alleles mostly differ by length (number of repeats), so they're named by fragment length — with a suffix (e.g. `142_2`) when two same-length sequences differ. For SNPs and sex markers the sequence itself is the allele. Allele **names are assigned per project** and can differ from the per-kit names in your raw result files, so always match on the sequence, not the name.
+One variant of a marker. Its identity is a DNA sequence, but it also has a name. Allele names are assigned per project and can differ from the per-kit names in your raw result files, so always match on the sequence, not the name.
+
+Microsatellite alleles mostly differ by length (number of motif repeats), so they are named by fragment length, with a suffix (e.g. 142_2) when two sequences of the same length differ. The suffix is assigned based on frequency: less frequent alleles receive higher suffix numbers. When a project's first kit is assigned, allele names are generated. If a new variant of an allele with the same length is added later, it receives the next available suffix number. SNP allele names follow the same rules.
+
 
 ### Genotype
 
@@ -65,7 +68,7 @@ The genotype the app keeps after weighing the replicates: an allele is accepted 
 
 ### Project
 
-Your workspace for making sense of genotypes. A project owns the allele-name catalog, holds **populations** and **studies**, and is where you recompute consensus and run animal **matching**. Samples from many kits and runs can share one project, and you can share a project with colleagues. Kits don't belong to a project — their samples do, once you assign a run to one.
+ The main workspace after the bioinfo analysis. A project contains the **allele-name catalog**, holds **populations** and **studies**, and is where you have a control on **consensus genotypes** and run animal **matching**. One project is restricted to one animal species - you need to create separate projects for different model objects. You can share a project with colleagues, export or import it.
 
 ### Population
 
@@ -79,26 +82,12 @@ A sampling effort inside a project — say "2025 winter monitoring" or a single 
 
 One biological specimen — scat, hair, blood or tissue — that you genotyped. It came from a kit well via a run, lives in a project (usually a population and study too), and carries a consensus genotype, a QC verdict and a genetic sex. Controls are samples as well, just flagged and never matched.
 
+### Matching
+
+Comparing samples' genotypes within a population to decide which came from the same animal, allowing for a little genotyping error. The result is the animal groupings above.
+
 ### Animal (individual)
 
 A single real animal, reconstructed after the fact by **matching**: samples whose genotypes agree closely enough are grouped as the same individual. One animal usually has several samples — the same wolf sampled at different times and places. This is the point of the whole workflow: turning a pile of scats into a count of individuals.
 
 ------------------------------------------------------------------------
-
-## A few more you'll meet
-
-### Matching
-
-Comparing samples' genotypes within a population to decide which came from the same animal, allowing for a little genotyping error. The result is the animal groupings above.
-
-### Sex marker
-
-A locus that reveals genetic sex — either a shared X/Y primer whose X and Y sequences differ, or separate ZFX/ZFY primers. The caller reads which sequences amplified and reports male or female.
-
-### QC (quality control)
-
-The per-sample and per-run checks: how many wells amplified, allelic dropout, false alleles, reads per well, and how the controls performed. The QC report and the plate read-count view tell you whether to trust a genotype or repeat the sample.
-
-### Claim code
-
-The one-time code shipped with a kit that the buyer redeems to unlock it in their account — no admin step.
