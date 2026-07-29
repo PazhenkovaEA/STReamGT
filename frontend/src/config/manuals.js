@@ -21,4 +21,8 @@ export const MANUALS = {
     raw: `${RAW}/admin-manual.md`,
     adminOnly: true,
   },
+  glossary: {
+    title: "Glossary",
+    raw: `${RAW}/glossary.md`,
+  },
 };

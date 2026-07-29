@@ -23,6 +23,7 @@ export default function Home() {
         <p className="row" style={{ gap: "1rem" }}>
           <Link to="/manuals/user">User Guide</Link>
           {isAdmin && <Link to="/manuals/admin">Admin Guide</Link>}
+          <Link to="/manuals/glossary">Glossary</Link>
         </p>
       </div>
 
