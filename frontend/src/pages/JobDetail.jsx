@@ -202,10 +202,20 @@ export default function JobDetail() {
 
       <h2>Sample batches</h2>
       <table className="table">
-        <thead><tr><th>Batch</th><th>Species</th><th>Tags</th></tr></thead>
+        <thead><tr><th>Batch</th><th>Species</th><th>Tags</th><th>Plate</th></tr></thead>
         <tbody>
           {job.batches.map((b) => (
-            <tr key={b.id}><td>{b.name}</td><td>{b.species || "—"}</td><td>{b.selected_tags.join(", ")}</td></tr>
+            <tr key={b.id}>
+              <td>{b.name}</td><td>{b.species || "—"}</td><td>{b.selected_tags.join(", ")}</td>
+              <td>
+                {job.status === "succeeded" ? (
+                  <button className="linkish" onClick={() =>
+                    api.downloadBatchPlate(job.public_id, b.id, `${b.name}_plate.xlsx`)}>
+                    Download plate
+                  </button>
+                ) : <span className="muted">—</span>}
+              </td>
+            </tr>
           ))}
         </tbody>
       </table>

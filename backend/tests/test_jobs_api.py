@@ -392,3 +392,33 @@ def test_results_renames_reference_alleles(client, catalog, admin_token, user_to
     assert "allele_sequences" in by_kind["reference_alleles"]["url"]
     # other kinds untouched
     assert by_kind["genotypes"]["filename"] == "DIVJA240_genotypes.txt"
+
+
+def test_download_batch_plate(client, catalog, admin_token, user_token, no_enqueue):
+    import tempfile
+    from app.db import SessionLocal
+    from app.models import Job
+    from sqlalchemy import select
+    from app.worker import pipeline_run as pr
+
+    kit_id = _make_kit(client, admin_token, assigned_ids=[user_id("user@x.com")])
+    pub = client.post("/api/jobs", json=job_payload(kit_id), headers=bearer(user_token)).json()["public_id"]
+    with SessionLocal() as db:
+        job = db.scalar(select(Job).where(Job.public_id == pub))
+        batch = next(b for b in job.batches if b.sample_names_text)       # the pasted-text batch
+        batch.sample_names_text = "A1,S1,\nB1,PCRneg01,pcr"
+        db.commit()
+        bid = batch.id
+
+    r = client.get(f"/api/jobs/{pub}/batches/{bid}/plate.xlsx", headers=bearer(user_token))
+    assert r.status_code == 200, r.text
+    assert "spreadsheetml" in r.headers["content-type"]
+    with tempfile.NamedTemporaryFile(suffix=".xlsx") as tmp:
+        tmp.write(r.content); tmp.flush()
+        rows = {x["TPositionId"]: x for x in pr.read_sample_xlsx(tmp.name)}
+    assert rows["A1"]["SPositionBC"] == "S1"
+    assert rows["B1"]["SPositionBC"] == "PCRneg01" and rows["B1"]["control_type"] == "pcr"
+
+    # unknown batch -> 404
+    assert client.get(f"/api/jobs/{pub}/batches/999999/plate.xlsx",
+                      headers=bearer(user_token)).status_code == 404

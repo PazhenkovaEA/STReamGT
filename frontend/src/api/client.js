@@ -91,6 +91,8 @@ export const api = {
   uploadTagLayout: (form) => request("/kits/tag-layout", { method: "POST", form }),
   downloadTagLayout: () => request("/kits/tag-layout/download"),
   downloadKitTemplate: (id, filename) => downloadBlob(`/kits/${id}/control-template.xlsx`, filename),
+  downloadBatchPlate: (publicId, batchId, filename) =>
+    downloadBlob(`/jobs/${publicId}/batches/${batchId}/plate.xlsx`, filename),
   claimKit: (code) => request("/kits/claim", { method: "POST", body: { code } }),
   regenerateClaimCode: (id) => request(`/kits/${id}/claim-code`, { method: "POST" }),
   revokeClaim: (id) => request(`/kits/${id}/claim`, { method: "DELETE" }),

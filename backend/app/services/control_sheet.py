@@ -27,9 +27,9 @@ def _list_row(letter_idx: int, num: int) -> int:
     return 2 + letter_idx * 12 + (num - 1)   # rows 2..97, order A1..A12,B1..B12,...
 
 
-def build_control_template_xlsx(kit) -> bytes:
-    controls = {c.position.upper(): c for c in kit.controls if c.position}
-
+def _plate_xlsx(named: dict[str, tuple[str | None, str]], note: str | None = None) -> bytes:
+    """Build the plate .xlsx. `named`: well "A1" -> (sample_name, control_type). A control_type in
+    KIND_FILL colours the well; empty control_type = an ordinary sample."""
     wb = Workbook()
     ws = wb.active
     ws.title = "plate"
@@ -38,18 +38,20 @@ def build_control_template_xlsx(kit) -> bytes:
     for cell in ("A1", "B1", "C1"):
         ws[cell].font = Font(bold=True)
 
-    # list rows for all 96 wells; control wells pre-filled + coloured
+    # list rows for all 96 wells; filled wells get name/control_type (+ colour for controls)
     for li, letter in enumerate(LETTERS):
         for num in NUMS:
             well = f"{letter}{num}"
             r = _list_row(li, num)
             ws.cell(row=r, column=1, value=well)
-            c = controls.get(well)
-            if c:
-                nc = ws.cell(row=r, column=2, value=c.name)
-                ws.cell(row=r, column=3, value=c.kind.value)
-                nc.fill = PatternFill("solid", fgColor=KIND_FILL.get(c.kind.value, "DC2626"))
-                nc.font = Font(color="FFFFFF", bold=True)
+            entry = named.get(well)
+            if entry:
+                name, ct = entry
+                nc = ws.cell(row=r, column=2, value=name)
+                if ct:
+                    ws.cell(row=r, column=3, value=ct)
+                    nc.fill = PatternFill("solid", fgColor=KIND_FILL.get(ct, "DC2626"))
+                    nc.font = Font(color="FFFFFF", bold=True)
 
     # plate grid header (well column numbers)
     for num in NUMS:
@@ -64,9 +66,9 @@ def build_control_template_xlsx(kit) -> bytes:
         for num in NUMS:
             cell = ws.cell(row=grow, column=GRID_COL0 + num, value=f"=B{_list_row(li, num)}")
             cell.alignment = Alignment(horizontal="center")
-            c = controls.get(f"{letter}{num}")
-            if c:
-                cell.fill = PatternFill("solid", fgColor=KIND_FILL.get(c.kind.value, "DC2626"))
+            entry = named.get(f"{letter}{num}")
+            if entry and entry[1]:
+                cell.fill = PatternFill("solid", fgColor=KIND_FILL.get(entry[1], "DC2626"))
                 cell.font = Font(color="FFFFFF", bold=True)
 
     ws.column_dimensions["A"].width = 12
@@ -74,10 +76,30 @@ def build_control_template_xlsx(kit) -> bytes:
     ws.column_dimensions["C"].width = 13
     for num in NUMS:
         ws.column_dimensions[get_column_letter(GRID_COL0 + num)].width = 13
-    ws.cell(row=11, column=GRID_COL0, value=(
-        "Fill sample names in the 'Sample Name' column (left); the plate grid mirrors them. "
-        "Control rows are pre-filled — do not rename."))
+    if note:
+        ws.cell(row=11, column=GRID_COL0, value=note)
 
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+def build_control_template_xlsx(kit) -> bytes:
+    """Blank plate template for a kit: control wells pre-filled, sample wells empty."""
+    named = {c.position.upper(): (c.name, c.kind.value)
+             for c in kit.controls if c.position}
+    return _plate_xlsx(named, note=(
+        "Fill sample names in the 'Sample Name' column (left); the plate grid mirrors them. "
+        "Control rows are pre-filled — do not rename."))
+
+
+def build_filled_plate_xlsx(rows) -> bytes:
+    """A batch's submitted plate, filled: rows are {TPositionId, SPositionBC, control_type}."""
+    named: dict[str, tuple[str | None, str]] = {}
+    for r in rows:
+        pos = str(r.get("TPositionId") or "").strip().upper()
+        name = str(r.get("SPositionBC") or "").strip()
+        if not pos or not name:
+            continue
+        named[pos] = (name, str(r.get("control_type") or "").strip().lower())
+    return _plate_xlsx(named)

@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import select, delete, update, func
 from sqlalchemy.orm import Session
 
@@ -454,3 +455,41 @@ def get_results(
             url=storage.presign_get(rf.object_key, fname), view_url=view_url,
         ))
     return out
+
+
+@router.get("/{public_id}/batches/{batch_id}/plate.xlsx")
+def download_batch_plate(
+    public_id: str, batch_id: int,
+    db: Session = Depends(get_db), current: User = Depends(get_current_user),
+):
+    """A sample batch's submitted plate, filled: the plate-template layout with this batch's names."""
+    from app.worker import pipeline_run as pr
+    from app.services.control_sheet import build_filled_plate_xlsx
+
+    job = _get_owned_job(public_id, db, current)
+    batch = next((b for b in job.batches if b.id == batch_id), None)
+    if batch is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Sample batch not found")
+    try:
+        if batch.sample_names_text:
+            rows = pr.samples_text_to_rows(batch.sample_names_text)
+        elif batch.sample_sheet_key:
+            with tempfile.NamedTemporaryFile(suffix=".xlsx") as tmp:
+                try:
+                    storage.download_file(batch.sample_sheet_key, tmp.name)
+                except Exception:
+                    raise HTTPException(status.HTTP_410_GONE,
+                                        "The uploaded sample sheet is no longer available.")
+                rows = pr.read_sample_xlsx(tmp.name)
+        else:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "This batch has no sample sheet.")
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+
+    kit = db.get(Kit, job.kit_id)
+    kit_code = kit.kit_code if kit else "kit"
+    return Response(
+        content=build_filled_plate_xlsx(rows),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{kit_code}_{batch.name}_plate.xlsx"'},
+    )
