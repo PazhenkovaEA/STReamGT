@@ -22,6 +22,7 @@ export default function ProjectDetail() {
   const [populations, setPopulations] = useState([]);
   const [studies, setStudies] = useState([]);
   const [kits, setKits] = useState([]);
+  const [samples, setSamples] = useState([]);
   const [access, setAccess] = useState(null);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -43,7 +44,10 @@ export default function ProjectDetail() {
     api.listStudies(id).then(setStudies).catch(() => {});
     api.listProjectAccess(id).then(setAccess).catch(() => {});
     api.listKits().then(setKits).catch(() => {});
+    api.listProjectSamples(id).then(setSamples).catch(() => {});
   };
+  const orphans = samples.filter((s) => !s.is_control && (s.population_id == null || s.study_id == null));
+  const popNameOf = (pid) => populations.find((p) => p.id === pid)?.name;
   useEffect(() => { load(); }, [id]);
 
   const act = async (fn) => {
@@ -62,6 +66,7 @@ export default function ProjectDetail() {
   };
   const attach = (studyId, kitId) => act(() => api.attachKit(studyId, kitId));
   const detach = (studyId, kitId) => act(() => api.detachKit(studyId, kitId));
+  const assignStudy = (sampleId, studyId) => act(() => api.patchSample(sampleId, { study_id: Number(studyId) }));
   const doDeleteStudy = (sid) => act(async () => { await api.deleteStudy(sid); setDelStudy(null); });
   const doDeletePopulation = (popId, opts) => act(async () => {
     await api.deletePopulation(id, popId, opts);
@@ -158,6 +163,38 @@ export default function ProjectDetail() {
       </div>
       {err && <p className="error">{err}</p>}
       {msg && <p className="ok">{msg}</p>}
+
+      {orphans.length > 0 && (
+        <section className="card">
+          <h2>Unassigned samples <span className="muted">({orphans.length})</span></h2>
+          <p className="muted small">These have no population and/or study, so they don't appear in any
+            population/study list and are skipped by matching. Assign each to a study — its population follows.</p>
+          <table className="table">
+            <tbody>
+              {orphans.map((s) => (
+                <tr key={s.id}>
+                  <td><Link to={`/samples/${s.id}`}>{s.system_code}</Link> {s.name}</td>
+                  <td className="muted small">
+                    {[s.population_id == null && "no population", s.study_id == null && "no study"]
+                      .filter(Boolean).join(" · ")}
+                  </td>
+                  <td>
+                    <select defaultValue=""
+                            onChange={(e) => { if (e.target.value) assignStudy(s.id, e.target.value); }}>
+                      <option value="">Assign to study…</option>
+                      {studies.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.name}{st.population_id ? ` (${popNameOf(st.population_id) || "?"})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <h2>Populations &amp; studies</h2>
       {populations.length === 0 ? <p className="muted">No populations yet.</p> : (

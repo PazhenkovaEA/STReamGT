@@ -116,11 +116,23 @@ def update_sample(
         if pop is None or pop.project_id != sample.project_id:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                                 "population is not in this sample's project")
+    st = None
     if data.get("study_id") is not None:
         st = db.get(Study, data["study_id"])
         if st is None or st.project_id != sample.project_id:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                                 "study is not in this sample's project")
+    # Keep study <-> population consistent: a study drives its population.
+    if st is not None and st.population_id is not None:
+        if data.get("population_id") is not None and data["population_id"] != st.population_id:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                "study belongs to a different population than the one given")
+        data["population_id"] = st.population_id          # assigning a study pulls in its population
+    elif data.get("population_id") is not None and "study_id" not in data and sample.study_id is not None:
+        cur = db.get(Study, sample.study_id)              # changing only population — its study must fit
+        if cur is not None and cur.population_id is not None and cur.population_id != data["population_id"]:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                "this sample's study is in another population; change or clear the study too")
     if "sex" in data:                 # a manual sex call locks it against auto-determination
         data.setdefault("sex_locked", True)
     if "population_id" in data and data["population_id"] != sample.population_id:
