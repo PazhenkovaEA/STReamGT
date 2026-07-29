@@ -6,6 +6,7 @@ import TargetPicker from "../components/TargetPicker.jsx";
 const STEPS = ["queued", "staging", "running", "uploading", "succeeded"];
 const REPORT_KINDS = ["html_report", "consensus_report"];
 const CONSENSUS_KINDS = ["consensus", "consensus_report", "reference_alleles"];
+const HIDDEN_KINDS = ["reads_summary"];
 const KIND_LABEL = {
   consensus: "consensus genotypes",
   consensus_report: "consensus report",
@@ -212,11 +213,16 @@ export default function JobDetail() {
       {job.status === "succeeded" && (
         <>
           <h2>Results</h2>
-          <ul className="results">
-            {results.filter((r) => !CONSENSUS_KINDS.includes(r.kind)).map((r) => (
-              <ResultRow key={r.filename} r={r} />
-            ))}
-          </ul>
+          {results.some((r) => !CONSENSUS_KINDS.includes(r.kind) && !HIDDEN_KINDS.includes(r.kind)) && (
+            <div className="card">
+              <h3>Files</h3>
+              <ul className="results">
+                {results
+                  .filter((r) => !CONSENSUS_KINDS.includes(r.kind) && !HIDDEN_KINDS.includes(r.kind))
+                  .map((r) => <ResultRow key={r.filename} r={r} />)}
+              </ul>
+            </div>
+          )}
 
           {results.some((r) => CONSENSUS_KINDS.includes(r.kind)) && (
             <div className="card">
