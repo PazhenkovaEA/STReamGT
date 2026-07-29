@@ -173,6 +173,33 @@ def controls_section(genotypes):
     return _frag(fig) + table
 
 
+def _fmt_num(v):
+    try:
+        return f"{float(v):g}"
+    except (TypeError, ValueError):
+        return "" if v is None else str(v)
+
+
+def thresholds_section(thresholds):
+    """Per-locus effective thresholds (progressive_threshold derives them from each locus's reads)."""
+    if thresholds.empty or "Marker" not in thresholds.columns:
+        return "<p class='muted'>No per-locus thresholds recorded for this run.</p>"
+    df = thresholds.drop_duplicates("Marker").sort_values("Marker")
+    intro = ("<p class='muted'>The read-count thresholds actually applied to each locus. With progressive "
+             "thresholding these are derived from the locus's own reads: <b>discard</b> = 1.5 × the loudest "
+             "negative control; <b>low-allele flag</b> = the 5th percentile of retained reads "
+             "(str/snp per locus type).</p>")
+    rows = "".join(
+        f"<tr><td>{r.Marker}</td><td>{getattr(r, 'locus_type', '')}</td>"
+        f"<td style='text-align:right'>{_fmt_num(getattr(r, 'discard_threshold', None))}</td>"
+        f"<td style='text-align:right'>{_fmt_num(getattr(r, 'low_allele_flag_threshold', None))}</td></tr>"
+        for r in df.itertuples())
+    return (intro + "<table style='border-collapse:collapse;margin-top:.5rem' border='1' cellpadding='4'>"
+            "<thead><tr><th>Locus</th><th>Type</th><th>discard_threshold</th>"
+            "<th>low_allele_flag_threshold</th></tr></thead>"
+            f"<tbody>{rows}</tbody></table>")
+
+
 # ---------------- Section 2: reads and alleles per locus / replicate ----------------
 
 def per_locus_section(genotypes):
@@ -450,6 +477,7 @@ def main():
     ap.add_argument("--reference_alleles")
     ap.add_argument("--ngsfilter")
     ap.add_argument("--parameters_file_path", default="/usr/local/bin/parameters.json")
+    ap.add_argument("--thresholds")
     ap.add_argument("--expected_reads", type=int, default=None)
     args = ap.parse_args()
     setup_logging(f"{args.kit_id}_report.log")
@@ -467,6 +495,7 @@ def main():
     positions = read_table(args.positions)
     consensus = read_table(args.consensus)
     reference = read_table(args.reference_alleles)
+    thresholds = read_table(args.thresholds, sep=",")
 
     # Control types come from the ngsfilter (positions/genotypes lack a control_type column). Enrich
     # both frames once so every _control_type_of() consumer (plate heatmap, controls table, per-locus
@@ -483,6 +512,7 @@ def main():
         f"<h2>Read attrition</h2>{funnel_section(reads_summary, args.expected_reads)}"
         f"<h2>Reads and alleles per locus / replicate assigned to alleles</h2>{per_locus_section(genotypes)}"
         f"<h2>Controls</h2>{controls_section(genotypes)}"
+        f"<h2>Thresholds used per locus</h2>{thresholds_section(thresholds)}"
         f"<h2>Plate read counts (□ = control)</h2>{plate_heatmap_section(genotypes, positions, negative_name)}"
     )
     out_main = f"{args.kit_id}_report.html"

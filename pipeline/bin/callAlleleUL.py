@@ -97,7 +97,19 @@ def positions_from_ngsfilter(ngsfilter_path, locus_name, kit_id):
     return pos[POSITION_COLUMNS]
 
 
-def write_empty_locus(args):
+def write_thresholds(kit_id, locus_name, locus_type, parameters):
+    """Record the thresholds actually applied for this locus (progressive_threshold may recompute
+    them from the locus's own reads), for the run report."""
+    low = (parameters["str_low_allele_flag_threshold"] if locus_type == "microsat"
+           else parameters["snp_low_allele_flag_threshold"])
+    pd.DataFrame([{
+        "Marker": locus_name, "locus_type": locus_type,
+        "discard_threshold": parameters["discard_threshold"],
+        "low_allele_flag_threshold": low,
+    }]).to_csv(f"{kit_id}_{locus_name}_thresholds.csv", index=False)
+
+
+def write_empty_locus(args, parameters):
     """Emit valid (header-only genotype/frequency + full positions) outputs for a locus
     that had no reads, so one dead locus doesn't fail the whole run (MERGE_ALLELES still works)."""
     pd.DataFrame(columns=GENOTYPE_COLUMNS).to_csv(
@@ -106,6 +118,7 @@ def write_empty_locus(args):
         f"{args.kit_id}_{args.locus_name}_frequency_of_sequences_by_marker.txt", sep="\t", index=False)
     positions_from_ngsfilter(args.ngsfilter_path, args.locus_name, args.kit_id).to_csv(
         f"{args.kit_id}_{args.locus_name}_positions.txt", sep="\t", index=False)
+    write_thresholds(args.kit_id, args.locus_name, args.locus_type, parameters)
 
 
 #STR alele calling
@@ -317,7 +330,7 @@ def main():
     # so one failed/empty locus doesn't abort the whole run.
     if sequences.empty or counts.empty:
         log.info("No reads for locus %s; writing empty outputs and skipping.", locus)
-        write_empty_locus(args)
+        write_empty_locus(args, parameters)
         return
 
     # Non-empty files must have the expected schema, or the melt/merge below fails cryptically.
@@ -396,7 +409,7 @@ def main():
     # rather than crashing on pd.concat([]).
     if not genotypes:
         log.info("No alleles remained for locus %s after filtering; writing empty outputs.", locus)
-        write_empty_locus(args)
+        write_empty_locus(args, parameters)
         return
 
     all_geno = pd.concat(genotypes)
@@ -424,6 +437,7 @@ def main():
 
     all_geno = all_geno[GENOTYPE_COLUMNS]
     all_geno.to_csv(f"{args.kit_id}_{args.locus_name}_genotypes.txt", sep="\t", index=False)
+    write_thresholds(args.kit_id, args.locus_name, args.locus_type, parameters)  # effective per-locus thresholds
 
 
     frequency = (all_geno.groupby(["Marker", "Sequence"], as_index=False)["Read_Count"].sum().rename(columns={"Read_Count": "N"}).sort_values(["Marker", "N"], ascending=[True, False]))

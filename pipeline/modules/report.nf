@@ -12,6 +12,7 @@ process REPORT {
     path consensus
     path reference_alleles
     path ngsfilter
+    path thresholds
 
     output:
     path("${params.kit_id}_report.html")
@@ -30,6 +31,7 @@ process REPORT {
         --reference_alleles ${reference_alleles} \
         --ngsfilter ${ngsfilter} \
         --parameters_file_path ${params.parameters_file_path} \
+        --thresholds ${thresholds} \
         ${expected}
     """
 }

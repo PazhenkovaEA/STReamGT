@@ -105,14 +105,16 @@ workflow {
 
     loci_ch = PROCESS_LOCI(loci_reads_ch)
     call_alleles_ch = CALL_ALLELES(loci_ch, ngsfilter)
-    genotypes_ch = call_alleles_ch.alleles.map { gen, freq, pos -> gen }
-    freq_ch      = call_alleles_ch.alleles.map { gen, freq, pos -> freq }
-    pos_ch       = call_alleles_ch.alleles.map { gen, freq, pos -> pos }
+    genotypes_ch = call_alleles_ch.alleles.map { gen, freq, pos, thr -> gen }
+    freq_ch      = call_alleles_ch.alleles.map { gen, freq, pos, thr -> freq }
+    pos_ch       = call_alleles_ch.alleles.map { gen, freq, pos, thr -> pos }
+    thr_ch       = call_alleles_ch.alleles.map { gen, freq, pos, thr -> thr }
 
     genotypes_list = genotypes_ch.collect()
     freq_list      = freq_ch.collect()
     pos_list       = pos_ch.collect()
-    merged = MERGE_ALLELES(genotypes_list, freq_list, pos_list)
+    thr_list       = thr_ch.collect()
+    merged = MERGE_ALLELES(genotypes_list, freq_list, pos_list, thr_list)
 
     // Project-level consensus across replicates (additional output).
     consensus_ch = CONSENSUS(merged.genotypes, merged.frequency, merged.positions)
@@ -133,7 +135,8 @@ workflow {
         merged.frequency,
         consensus_ch.consensus,
         consensus_ch.reference,
-        ngsfilter
+        ngsfilter,
+        merged.thresholds
     )
 
 

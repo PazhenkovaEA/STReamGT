@@ -7,7 +7,7 @@ process CALL_ALLELES{
     path ngsfilter_file
 
     output:
-    tuple path("${params.kit_id}_${locus_name}_genotypes.txt"), path("${params.kit_id}_${locus_name}_frequency_of_sequences_by_marker.txt"), path("${params.kit_id}_${locus_name}_positions.txt"), emit: alleles
+    tuple path("${params.kit_id}_${locus_name}_genotypes.txt"), path("${params.kit_id}_${locus_name}_frequency_of_sequences_by_marker.txt"), path("${params.kit_id}_${locus_name}_positions.txt"), path("${params.kit_id}_${locus_name}_thresholds.csv"), emit: alleles
     path "${params.kit_id}_${locus_name}.log", emit: log
 
     script:
@@ -25,12 +25,14 @@ process MERGE_ALLELES{
     path genotypes_files
     path freq_files
     path pos_files
+    path thr_files
 
 
     output:
     path("${params.kit_id}_genotypes.txt"), emit: genotypes
     path("${params.kit_id}_frequency_of_sequences_by_marker.txt"), emit: frequency
     path("${params.kit_id}_positions.txt"), emit: positions
+    path("${params.kit_id}_thresholds.csv"), emit: thresholds
 
     script:
     """
@@ -44,6 +46,9 @@ process MERGE_ALLELES{
 
     # ---- merge positions ----
     awk 'FNR==1 && NR!=1 {next} {print}' ${pos_files.join(' ')} > ${params.kit_id}_positions.txt
+
+    # ---- merge per-locus thresholds ----
+    awk 'FNR==1 && NR!=1 {next} {print}' ${thr_files.join(' ')} > ${params.kit_id}_thresholds.csv
     """
 }
 
