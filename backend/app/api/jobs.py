@@ -444,8 +444,13 @@ def get_results(
         # HTML reports also get an inline view URL so they open in a browser tab.
         view_url = (storage.presign_get(rf.object_key, inline=True, content_type="text/html")
                     if rf.kind in report_kinds else None)
+        # Present reference_alleles as allele_sequences (clearer; names are per-kit). Display +
+        # download name only — the stored object/pipeline/ingestion are unchanged.
+        fname = rf.filename
+        if rf.kind == ResultKind.reference_alleles:
+            fname = fname.replace("reference_alleles", "allele_sequences")
         out.append(ResultDownload(
-            kind=rf.kind, filename=rf.filename,
-            url=storage.presign_get(rf.object_key, rf.filename), view_url=view_url,
+            kind=rf.kind, filename=fname,
+            url=storage.presign_get(rf.object_key, fname), view_url=view_url,
         ))
     return out

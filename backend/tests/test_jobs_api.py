@@ -364,3 +364,31 @@ def test_ingest_completed_job_into_project(client, catalog, admin_token, user_to
     assert r.json()["samples"] == 2
     samples = client.get(f"/api/populations/{pop}/samples", headers=bearer(user_token)).json()
     assert {s["name"] for s in samples} == {"S1", "S2"}
+
+
+def test_results_renames_reference_alleles(client, catalog, admin_token, user_token, no_enqueue, monkeypatch):
+    from app.db import SessionLocal
+    from app.models import Job, JobStatus, ResultFile, ResultKind
+    from sqlalchemy import select
+
+    monkeypatch.setattr("app.api.jobs.storage.presign_get",
+                        lambda key, filename=None, **kw: f"https://x/{filename or key}")
+    kit_id = _make_kit(client, admin_token, assigned_ids=[user_id("user@x.com")])
+    pub = client.post("/api/jobs", json=job_payload(kit_id), headers=bearer(user_token)).json()["public_id"]
+    with SessionLocal() as db:
+        job = db.scalar(select(Job).where(Job.public_id == pub))
+        job.status = JobStatus.succeeded
+        db.add(ResultFile(job_id=job.id, kind=ResultKind.reference_alleles, object_key="k1",
+                          filename="DIVJA240_reference_alleles.txt"))
+        db.add(ResultFile(job_id=job.id, kind=ResultKind.genotypes, object_key="k2",
+                          filename="DIVJA240_genotypes.txt"))
+        db.commit()
+
+    r = client.get(f"/api/jobs/{pub}/results", headers=bearer(user_token))
+    assert r.status_code == 200, r.text
+    by_kind = {x["kind"]: x for x in r.json()}
+    # reference_alleles is presented/downloaded as allele_sequences
+    assert by_kind["reference_alleles"]["filename"] == "DIVJA240_allele_sequences.txt"
+    assert "allele_sequences" in by_kind["reference_alleles"]["url"]
+    # other kinds untouched
+    assert by_kind["genotypes"]["filename"] == "DIVJA240_genotypes.txt"

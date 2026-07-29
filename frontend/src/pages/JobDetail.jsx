@@ -5,7 +5,26 @@ import TargetPicker from "../components/TargetPicker.jsx";
 
 const STEPS = ["queued", "staging", "running", "uploading", "succeeded"];
 const REPORT_KINDS = ["html_report", "consensus_report"];
+const CONSENSUS_KINDS = ["consensus", "consensus_report", "reference_alleles"];
+const KIND_LABEL = {
+  consensus: "consensus genotypes",
+  consensus_report: "consensus report",
+  reference_alleles: "allele sequences",
+};
 const EMPTY_TARGET = { project_id: null, default_population_id: null, default_study_id: null };
+
+function ResultRow({ r }) {
+  return (
+    <li>
+      <span className="badge">{KIND_LABEL[r.kind] || r.kind}</span>
+      <span>{r.filename}</span>
+      {REPORT_KINDS.includes(r.kind) && r.view_url && (
+        <a href={r.view_url} target="_blank" rel="noreferrer">Open ↗</a>
+      )}
+      <a href={r.url}>Download</a>
+    </li>
+  );
+}
 
 export default function JobDetail() {
   const { publicId } = useParams();
@@ -194,17 +213,24 @@ export default function JobDetail() {
         <>
           <h2>Results</h2>
           <ul className="results">
-            {results.map((r) => (
-              <li key={r.filename}>
-                <span className="badge">{r.kind}</span>
-                <span>{r.filename}</span>
-                {REPORT_KINDS.includes(r.kind) && r.view_url && (
-                  <a href={r.view_url} target="_blank" rel="noreferrer">Open ↗</a>
-                )}
-                <a href={r.url}>Download</a>
-              </li>
+            {results.filter((r) => !CONSENSUS_KINDS.includes(r.kind)).map((r) => (
+              <ResultRow key={r.filename} r={r} />
             ))}
           </ul>
+
+          {results.some((r) => CONSENSUS_KINDS.includes(r.kind)) && (
+            <div className="card">
+              <h3>Consensus <span className="muted small">(per-kit)</span></h3>
+              <p className="muted small">Allele names in these files are assigned <b>per kit</b> from this
+                run's read frequencies and may not match the project's allele names, which are curated per
+                project. <code>allele_sequences.txt</code> lists the DNA sequence behind each name.</p>
+              <ul className="results">
+                {results.filter((r) => CONSENSUS_KINDS.includes(r.kind)).map((r) => (
+                  <ResultRow key={r.filename} r={r} />
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="card">
             <h2>Assign to project <span className="muted small">(for consensus &amp; matching)</span></h2>
