@@ -26,6 +26,8 @@ export default function ProjectDetail() {
   const [access, setAccess] = useState(null);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
+  const [sel, setSel] = useState(() => new Set());   // selected orphan sample ids
+  const [bulkStudy, setBulkStudy] = useState("");
   const [popName, setPopName] = useState("");
   const [addStudyFor, setAddStudyFor] = useState(null);
   const [newStudyName, setNewStudyName] = useState("");
@@ -67,6 +69,13 @@ export default function ProjectDetail() {
   const attach = (studyId, kitId) => act(() => api.attachKit(studyId, kitId));
   const detach = (studyId, kitId) => act(() => api.detachKit(studyId, kitId));
   const assignStudy = (sampleId, studyId) => act(() => api.patchSample(sampleId, { study_id: Number(studyId) }));
+  const toggleSel = (sid) => setSel((s) => {
+    const n = new Set(s); n.has(sid) ? n.delete(sid) : n.add(sid); return n;
+  });
+  const bulkAssign = () => act(async () => {
+    await api.assignSamplesToStudy(id, [...sel], Number(bulkStudy));
+    setSel(new Set()); setBulkStudy("");
+  });
   const doDeleteStudy = (sid) => act(async () => { await api.deleteStudy(sid); setDelStudy(null); });
   const doDeletePopulation = (popId, opts) => act(async () => {
     await api.deletePopulation(id, popId, opts);
@@ -169,10 +178,38 @@ export default function ProjectDetail() {
           <h2>Unassigned samples <span className="muted">({orphans.length})</span></h2>
           <p className="muted small">These have no population and/or study, so they don't appear in any
             population/study list and are skipped by matching. Assign each to a study — its population follows.</p>
+          {sel.size > 0 && (
+            <div className="row" style={{ gap: ".5rem", alignItems: "center", marginBottom: ".5rem" }}>
+              <b>{sel.size} selected</b>
+              <select value={bulkStudy} onChange={(e) => setBulkStudy(e.target.value)}>
+                <option value="">Assign to study…</option>
+                {studies.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.name}{st.population_id ? ` (${popNameOf(st.population_id) || "?"})` : ""}
+                  </option>
+                ))}
+              </select>
+              <button className="secondary" disabled={!bulkStudy} onClick={bulkAssign}>
+                Assign {sel.size} selected
+              </button>
+              <button className="link" onClick={() => setSel(new Set())}>clear</button>
+            </div>
+          )}
           <table className="table">
+            <thead>
+              <tr>
+                <th style={{ width: "1.5rem" }}>
+                  <input type="checkbox"
+                         checked={orphans.every((s) => sel.has(s.id))}
+                         onChange={(e) => setSel(e.target.checked ? new Set(orphans.map((s) => s.id)) : new Set())} />
+                </th>
+                <th>Sample</th><th>Missing</th><th>Assign</th>
+              </tr>
+            </thead>
             <tbody>
               {orphans.map((s) => (
                 <tr key={s.id}>
+                  <td><input type="checkbox" checked={sel.has(s.id)} onChange={() => toggleSel(s.id)} /></td>
                   <td><Link to={`/samples/${s.id}`}>{s.system_code}</Link> {s.name}</td>
                   <td className="muted small">
                     {[s.population_id == null && "no population", s.study_id == null && "no study"]

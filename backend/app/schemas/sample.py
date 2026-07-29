@@ -71,6 +71,12 @@ class SampleUpdate(BaseModel):
     sex_locked: bool | None = None
 
 
+class AssignStudyRequest(BaseModel):
+    """Bulk-assign samples to a study (its population follows)."""
+    sample_ids: list[int]
+    study_id: int
+
+
 class ConsensusEdit(BaseModel):
     """Manual allele-call edits (display names); the sequence identity is re-resolved server-side."""
     allele1: str | None = None

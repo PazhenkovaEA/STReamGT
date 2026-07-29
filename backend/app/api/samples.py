@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -13,7 +13,7 @@ from app.models import (
 )
 from app.schemas.sample import (
     SampleSummary, SampleDetail, ConsensusGenotypeOut, ReplicateObservationOut, SampleUpdate,
-    MarkerPlot,
+    AssignStudyRequest, MarkerPlot,
 )
 from app.schemas.project import PopulationOut
 from app.services.plot_data import sample_plot_data
@@ -142,6 +142,24 @@ def update_sample(
     db.commit()
     db.refresh(sample)
     return sample
+
+
+@router.post("/projects/{project_id}/samples/assign-study")
+def assign_samples_to_study(
+    project_id: int, payload: AssignStudyRequest,
+    db: Session = Depends(get_db), current: User = Depends(get_current_user),
+):
+    """Bulk-assign samples to a study within their project; the study's population follows."""
+    get_accessible_project(project_id, need_edit=True, db=db, user=current)
+    study = db.get(Study, payload.study_id)
+    if study is None or study.project_id != project_id:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "study is not in this project")
+    res = db.execute(
+        update(Sample)
+        .where(Sample.id.in_(payload.sample_ids), Sample.project_id == project_id)
+        .values(study_id=study.id, population_id=study.population_id, subgroup_id=None))
+    db.commit()
+    return {"assigned": res.rowcount}
 
 
 @router.get("/samples/{sample_id}/replicates", response_model=list[ReplicateObservationOut])

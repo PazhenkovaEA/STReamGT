@@ -176,6 +176,9 @@ export const api = {
   listPopulationSamples: (populationId) => request(`/populations/${populationId}/samples`),
   getSample: (sampleId) => request(`/samples/${sampleId}`),
   patchSample: (sampleId, body) => request(`/samples/${sampleId}`, { method: "PATCH", body }),
+  assignSamplesToStudy: (projectId, sampleIds, studyId) =>
+    request(`/projects/${projectId}/samples/assign-study`,
+      { method: "POST", body: { sample_ids: sampleIds, study_id: studyId } }),
   getSampleReplicates: (sampleId) => request(`/samples/${sampleId}/replicates`),
   getSamplePlotData: (sampleId, markers) =>
     request(`/samples/${sampleId}/plot-data${markers && markers.length ? `?markers=${markers.join(",")}` : ""}`),
